@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(USER)
+  orders       Order[]
+  products     Product[]
+  customers    Customer[]
+  bomItems     BOMItem[]
+  manufacturingOrders ManufacturingOrder[]
+  phone        String?
+  businessType BusinessType @default(B2C)
+  shopName     String?
+  shopCategory String?
+  shopAddress  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum BusinessType {
+  B2B
+  B2C
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  type        ProductType @default(STANDARD)
+  price       Float
+  stock       Int      @default(0)
+  unit        String   @default("pcs")
+  sku         String?
+  dimensions  String?
+  imageUrl    String?
+  orders      OrderItem[]
+  bomItems    BOMItem[]  @relation("BOMFinishedGood")
+  usedInBOM   BOMItem[]  @relation("BOMRawMaterial")
+  manufacturingOrders ManufacturingOrder[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([name])
+  @@index([userId])
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([name])
+  @@index([phone])
+}
+
+model Order {
+  id         String      @id @default(uuid())
+  status     OrderStatus @default(PENDING)
+  total      Float
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  customerId String
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  items      OrderItem[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([status])
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum ProductType {
+  STANDARD
+  RAW_MATERIAL
+  FINISHED_GOOD
+}
+
+model BOMItem {
+  id             String   @id @default(uuid())
+  finishedGoodId String
+  finishedGood   Product  @relation("BOMFinishedGood", fields: [finishedGoodId], references: [id])
+  rawMaterialId  String
+  rawMaterial    Product  @relation("BOMRawMaterial", fields: [rawMaterialId], references: [id])
+  quantity       Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@index([finishedGoodId])
+  @@index([rawMaterialId])
+}
+
+model ManufacturingOrder {
+  id         String   @id @default(uuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  quantity   Int
+  status     MfgStatus @default(PLANNED)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([productId])
+  @@index([status])
+}
+
+enum MfgStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model OTP {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  type      String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, code])
+}
