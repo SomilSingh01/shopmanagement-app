@@ -141,11 +141,11 @@ export class AuthController {
         }
       });
 
-      // Send email via Brevo
+      // Send email via Brevo (non-fatal if SMTP fails — OTP is already in DB & terminal)
       const result = await EmailService.sendOTP(email, code, type);
       
       if (!result.success && result.error) {
-        throw result.error;
+        console.warn('⚠️ Email delivery failed, but OTP is saved. Check terminal for code.');
       }
 
       res.json({ message: 'OTP sent successfully' });

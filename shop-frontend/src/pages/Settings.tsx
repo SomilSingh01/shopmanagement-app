@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
-import { Header } from '@/components/layout/Header'
 import { useAuth } from '@/context/AuthContext'
 import {
   Store,
@@ -96,8 +95,6 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header showActions={false} />
-
       {/* Page Header */}
       <div className="px-4 py-4 border-b border-border">
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>

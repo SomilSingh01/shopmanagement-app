@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 export class EmailService {
   private static get SMTP_USER() { return process.env.SMTP_USER || process.env.SENDER_EMAIL || ''; }
   private static get SMTP_PASS() { return process.env.SMTP_PASS || process.env.BREVO_API_KEY || ''; }
-  private static get SENDER_EMAIL() { return process.env.SENDER_EMAIL || 'noreply@shopmanager.com'; }
+  private static get SENDER_EMAIL() { return process.env.SMTP_SENDER || process.env.SENDER_EMAIL || 'noreply@shopmanager.com'; }
   private static SENDER_NAME = 'Shop Manager';
 
   private static getTransporter() {
@@ -19,6 +19,7 @@ export class EmailService {
   }
 
   static async sendOTP(to: string, code: string, type: 'SIGNUP' | 'FORGOT_PASSWORD') {
+    console.info('🔐 OTP for', to, ':', code);
     if (!this.SMTP_USER || !this.SMTP_PASS) {
       console.warn('SMTP credentials are not set. OTP would be:', code);
       return { success: true, message: 'Simulated email sent' };

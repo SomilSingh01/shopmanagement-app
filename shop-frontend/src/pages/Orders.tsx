@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react'
-import { Header } from '@/components/layout/Header'
 import type { Order } from '@/types'
 import { ChevronRight, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -46,8 +45,6 @@ export default function OrdersPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header showActions={false} />
-
       {/* Page Header */}
       <div className="px-4 py-4 border-b border-border">
         <h1 className="text-2xl font-bold text-foreground mb-4">Orders</h1>

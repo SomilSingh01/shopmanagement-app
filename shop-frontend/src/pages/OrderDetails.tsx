@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
-import { Header } from '@/components/layout/Header'
 import { motion } from 'framer-motion'
 import { 
   ArrowLeft, 
@@ -86,7 +85,6 @@ export default function OrderDetailsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Header showActions={false} />
         <div className="flex-1 flex items-center justify-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         </div>
@@ -97,7 +95,6 @@ export default function OrderDetailsPage() {
   if (!order) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <Header showActions={false} />
         <div className="flex-1 flex items-center justify-center flex-col gap-4">
           <p className="text-muted-foreground">Order not found</p>
           <button 

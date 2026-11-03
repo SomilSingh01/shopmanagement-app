@@ -20,8 +20,15 @@ const updateOrderStatusSchema = z.object({
 export class OrderController {
   static async getAll(req: Request, res: Response) {
     try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
       const { status } = req.query;
-      const whereClause = status ? { status: status as any } : {};
+      const whereClause = {
+        ...(status ? { status: status as any } : {}),
+        userId,
+      };
 
       const orders = await prisma.order.findMany({
         where: whereClause,
@@ -41,9 +48,13 @@ export class OrderController {
 
   static async getById(req: Request, res: Response) {
     try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
       const id = req.params.id as string;
-      const order = await prisma.order.findUnique({
-        where: { id },
+      const order = await prisma.order.findFirst({
+        where: { id, userId },
         include: {
           customer: true,
           user: { select: { name: true, email: true } },
@@ -98,11 +109,15 @@ export class OrderController {
 
   static async updateStatus(req: Request, res: Response) {
     try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
       const id = req.params.id as string;
       const { status } = updateOrderStatusSchema.parse(req.body);
       
       const order = await prisma.order.update({
-        where: { id },
+        where: { id, userId },
         data: { status },
       });
       

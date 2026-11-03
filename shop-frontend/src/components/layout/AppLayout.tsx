@@ -2,11 +2,23 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation, useOutlet } from 'react-router-dom'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { Header } from '@/components/layout/Header'
 import { BottomNavigation } from '@/components/layout/BottomNavigation'
+import { ProfileDrawer } from '@/components/home/ProfileDrawer'
 import { motion, AnimatePresence } from 'framer-motion'
 
 // Define the order of the main tabs for directional sliding
 const routeOrder = ['/app', '/app/inventory', '/app/manufacturing', '/app/orders', '/app/customers']
+
+// Main tabs that share the permanent fixed top bar
+const mainRoutes = [
+  '/app',
+  '/app/inventory',
+  '/app/manufacturing',
+  '/app/orders',
+  '/app/customers',
+  '/app/settings',
+]
 
 const getRouteIndex = (pathname: string) => {
   // exact match first
@@ -20,9 +32,12 @@ const getRouteIndex = (pathname: string) => {
 export default function AppLayout() {
   const location = useLocation()
   const currentOutlet = useOutlet()
+  const [showProfileDrawer, setShowProfileDrawer] = useState(false)
   
   const [prevPathname, setPrevPathname] = useState(location.pathname)
   const [direction, setDirection] = useState(0)
+
+  const showMainHeader = mainRoutes.includes(location.pathname)
 
   // Calculate direction synchronously during render to ensure Framer Motion
   // gets the correct direction immediately when the component mounts
@@ -45,7 +60,7 @@ export default function AppLayout() {
   }
 
   const transition = {
-    type: 'tween',
+    type: 'tween' as const,
     ease: [0.25, 1, 0.5, 1], // iOS style smooth ease-out (cubic-bezier)
     duration: 0.35,
   }
@@ -69,30 +84,45 @@ export default function AppLayout() {
 
   return (
     <ProtectedRoute>
-      <div className="h-[100dvh] bg-background overflow-hidden relative">
-        <AnimatePresence initial={false} custom={direction}>
-          <motion.div
-            key={location.pathname}
-            custom={direction}
-            variants={variants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            className={`w-full absolute top-0 left-0 bg-background h-[100dvh] will-change-transform z-10 ${
-              direction !== 0 ? 'shadow-[-10px_0_30px_rgba(0,0,0,0.05)]' : ''
-            }`}
-          >
-            {/* The inner div handles the scrolling, while the outer motion.div stays static. 
-                This guarantees any 'fixed' elements inside the pages (like FABs) anchor to the static motion.div 
-                and won't scroll with the content! */}
-            <div className="w-full h-full overflow-y-auto overflow-x-hidden pb-24">
-              {currentOutlet}
-            </div>
-          </motion.div>
-        </AnimatePresence>
+      <div className="h-[100dvh] flex flex-col bg-background overflow-hidden relative">
+        {showMainHeader && (
+          <Header
+            showActions={true}
+            onProfileClick={() => setShowProfileDrawer(true)}
+          />
+        )}
+
+        <div className="flex-1 relative overflow-hidden">
+          <AnimatePresence initial={false} custom={direction}>
+            <motion.div
+              key={location.pathname}
+              custom={direction}
+              variants={variants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className={`w-full absolute inset-0 bg-background will-change-transform z-10 ${
+                direction !== 0 ? 'shadow-[-10px_0_30px_rgba(0,0,0,0.05)]' : ''
+              }`}
+            >
+              {/* The inner div handles the scrolling, while the outer motion.div stays static. 
+                  This guarantees any 'fixed' elements inside the pages (like FABs) anchor to the static motion.div 
+                  and won't scroll with the content! */}
+              <div className="w-full h-full overflow-y-auto overflow-x-hidden pb-24">
+                {currentOutlet}
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
         
         {/* We place BottomNavigation outside the absolute container so it stays fixed */}
         <BottomNavigation />
+
+        {/* Global Profile Drawer accessible from fixed Header across all main tabs */}
+        <ProfileDrawer
+          isOpen={showProfileDrawer}
+          onClose={() => setShowProfileDrawer(false)}
+        />
       </div>
     </ProtectedRoute>
   )

@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react'
-import { Header } from '@/components/layout/Header'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
 import type { Product, ManufacturingOrder, BOMItem } from '@/types'
@@ -108,8 +107,6 @@ export default function ManufacturingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header showActions={false} />
-
       <div className="px-4 py-4 border-b border-border bg-card">
         <h1 className="text-2xl font-bold text-foreground mb-1 flex items-center gap-2">
           <Settings className="w-6 h-6 text-primary" />

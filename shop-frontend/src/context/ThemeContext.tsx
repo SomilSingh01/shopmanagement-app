@@ -19,14 +19,25 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     setMounted(true)
     const savedTheme = localStorage.getItem('shop-theme') as Theme | null
-    if (savedTheme && ['light', 'dark', 'ocean'].includes(savedTheme)) {
-      setThemeState(savedTheme)
-      applyTheme(savedTheme)
-    }
+    const activeTheme: Theme = savedTheme && ['light', 'dark', 'ocean'].includes(savedTheme)
+      ? savedTheme
+      : 'light'
+    
+    setThemeState(activeTheme)
+    applyTheme(activeTheme)
   }, [])
 
   const applyTheme = (newTheme: Theme) => {
     const root = document.documentElement
+    root.classList.remove('dark', 'ocean')
+    if (newTheme === 'dark') {
+      root.classList.add('dark')
+    } else if (newTheme === 'ocean') {
+      root.classList.add('ocean')
+    } else {
+      root.classList.add('light')
+    }
+
     const themes = {
       light: {
         background: '#F8FAFC',

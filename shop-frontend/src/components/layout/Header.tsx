@@ -26,6 +26,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleLogout = async () => {
     try {
+      setShowMenu(false)
       await logout()
       navigate('/login')
     } catch (error) {
@@ -121,20 +122,26 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Dropdown Menu */}
               {showMenu && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50"
-                >
-                  <button
-                    onClick={handleLogout}
-                    className="w-full px-4 py-3 flex items-center gap-2 hover:bg-muted text-foreground text-sm transition-colors text-left border-t border-border"
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowMenu(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 mt-2 w-48 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50"
                   >
-                    <LogOut className="w-4 h-4" />
-                    Logout
-                  </button>
-                </motion.div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full px-4 py-3 flex items-center gap-2 hover:bg-muted text-foreground text-sm transition-colors text-left"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </motion.div>
+                </>
               )}
             </div>
           </div>

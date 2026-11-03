@@ -24,8 +24,7 @@ const sanitize = (obj: any): any => {
 
 export const sanitizeInputs = (req: Request, res: Response, next: NextFunction) => {
   if (req.body) req.body = sanitize(req.body);
-  if (req.query) req.query = sanitize(req.query);
   if (req.params) req.params = sanitize(req.params);
-  
+  // Note: req.query is read-only in Express 5 — skip it
   next();
 };
