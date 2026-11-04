@@ -12,55 +12,55 @@ A modern, full-stack, enterprise-grade Shop & Manufacturing Management applicati
 
 ---
 
-## 🌐 Live Deployments
+##  Live Deployments
 
-- 🚀 **Production Application:** [https://shopmanagement-app.vercel.app](https://shopmanagement-app.vercel.app)
-- ⚡ **Backend API Endpoint:** [https://shopmanagement-app-4w7y.onrender.com](https://shopmanagement-app-4w7y.onrender.com)
-- 📂 **Source Code:** [https://github.com/SomilSingh01/shopmanagement-app](https://github.com/SomilSingh01/shopmanagement-app)
+-  **Production Application:** [https://shopmanagement-app.vercel.app](https://shopmanagement-app.vercel.app)
+-  **Backend API Endpoint:** [https://shopmanagement-app-4w7y.onrender.com](https://shopmanagement-app-4w7y.onrender.com)
+-  **Source Code:** [https://github.com/SomilSingh01/shopmanagement-app](https://github.com/SomilSingh01/shopmanagement-app)
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-### 1. 📊 Executive Dashboard & Analytics
+### 1.  Executive Dashboard & Analytics
 - Live visual overview of shop performance, gross revenue, and pending vs. completed orders.
 - Dynamic historical revenue charts with multiple date filter ranges (7 days, 30 days, 90 days).
 - Real-time inventory alerts highlighting products running low on stock.
 
-### 2. 🏭 Manufacturing Execution (MES) & Bill of Materials (BOM)
+### 2.  Manufacturing Execution (MES) & Bill of Materials (BOM)
 - Track production from raw components to finished goods.
 - Multi-component Bill of Materials (BOM) management.
 - Stage-based workflow tracking: **Pending** ➔ **In Progress** ➔ **Quality Check** ➔ **Completed**.
 - Automatically deducts raw material inventory upon order initiation.
 
-### 3. 📦 Real-time Inventory Management
+### 3.  Real-time Inventory Management
 - Categorized product inventory tracking with SKU, stock quantity, and pricing.
 - Instant modal/drawer product creation and rapid inline stock updates.
 - Visual low-stock warning chips and restock threshold warnings.
 
-### 4. 🛒 Orders & Automated Invoicing
+### 4.  Orders & Automated Invoicing
 - Full order lifecycle tracking: **Pending**, **Processing**, **Dispatched**, **Delivered**, and **Cancelled**.
 - Itemized invoicing system with automatic subtotal, tax calculation, and discounts.
 - Printable, clean invoice presentation for customer fulfillment.
 
-### 5. 👥 Customer Relationship Management (CRM)
+### 5.  Customer Relationship Management (CRM)
 - Customer directory with contact details, shipping addresses, and transaction histories.
 - Instant client drawer creation directly within the checkout/order flow.
 
-### 6. 🔐 Hardened Security & Authentication
+### 6.  Hardened Security & Authentication
 - **Two-Factor Email OTP Verification**: Powered by Brevo SMTP for secure email verification during signup and password recovery.
 - **Brute-Force Protection**: Server-enforced rate limiter with automatic 5-attempt lockout (5-minute cooldown) returning HTTP 429.
 - **Cross-Domain Session Security**: HttpOnly `SameSite=None` secure cookies linking frontend (Vercel) and backend (Render).
 - **Zero-Trust Input Validation**: All incoming requests validated at API boundaries via Zod schemas and HTML/XSS sanitization.
 
-### 7. 🎨 Mobile-First Responsive Design & Theming
+### 7.  Mobile-First Responsive Design & Theming
 - Fully responsive layout optimized for desktop, tablet, and mobile screens.
 - Persistent header and bottom navigation for mobile PWA ergonomics.
 - Multi-theme engine supporting **Light Mode** (default), **Dark Mode**, and **Ocean Blue**.
 
 ---
 
-## 🏗️ System Architecture
+##  System Architecture
 
 The application is structured following clean **N-Tier Architecture**:
 
@@ -82,7 +82,7 @@ The application is structured following clean **N-Tier Architecture**:
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Layer | Technologies |
 |---|---|
@@ -94,7 +94,7 @@ The application is structured following clean **N-Tier Architecture**:
 
 ---
 
-## 🚀 Getting Started (Local Development)
+##  Getting Started (Local Development)
 
 ### Prerequisites
 - Node.js (v18 or higher)
