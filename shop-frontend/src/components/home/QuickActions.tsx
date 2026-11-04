@@ -1,58 +1,61 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Factory, ShoppingCart, Users } from 'lucide-react'
+import { Plus, Factory, ShoppingCart, Users, Scissors } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { AddProductDrawer } from '@/components/inventory/AddProductDrawer'
+import { AddItemWeMakeDrawer } from '@/components/inventory/AddItemWeMakeDrawer'
+import { AddRawMaterialDrawer } from '@/components/inventory/AddRawMaterialDrawer'
 import { AddCustomerDrawer } from '@/components/customers/AddCustomerDrawer'
 import { CreateOrderDrawer } from '@/components/orders/CreateOrderDrawer'
 
 export const QuickActions = () => {
-  const [isAddProductOpen, setIsAddProductOpen] = React.useState(false)
-  const [isAddCustomerOpen, setIsAddCustomerOpen] = React.useState(false)
-  const [isCreateOrderOpen, setIsCreateOrderOpen] = React.useState(false)
+  const [isAddItemWeMakeOpen, setIsAddItemWeMakeOpen] = useState(false)
+  const [isAddRawMaterialOpen, setIsAddRawMaterialOpen] = useState(false)
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false)
+  const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false)
 
   const actions = [
     {
-      label: 'Add Product',
-      icon: <Plus className="w-6 h-6 text-blue-600" />,
-      onClick: () => setIsAddProductOpen(true),
-      bgColor: 'bg-blue-100',
+      label: '+ Item We Make',
+      icon: <Scissors className="w-6 h-6 text-purple-600 dark:text-purple-400" />,
+      onClick: () => setIsAddItemWeMakeOpen(true),
     },
     {
       label: 'Manufacture',
-      icon: <Factory className="w-6 h-6 text-purple-600" />,
+      icon: <Factory className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />,
       href: '/app/manufacturing',
-      bgColor: 'bg-purple-100',
+    },
+    {
+      label: '+ Raw Material',
+      icon: <Plus className="w-6 h-6 text-amber-600 dark:text-amber-400" />,
+      onClick: () => setIsAddRawMaterialOpen(true),
     },
     {
       label: 'New Order',
-      icon: <ShoppingCart className="w-6 h-6 text-green-600" />,
+      icon: <ShoppingCart className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />,
       onClick: () => setIsCreateOrderOpen(true),
-      bgColor: 'bg-green-100',
     },
     {
       label: 'Add Client',
-      icon: <Users className="w-6 h-6 text-orange-600" />,
+      icon: <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />,
       onClick: () => setIsAddCustomerOpen(true),
-      bgColor: 'bg-orange-100',
     },
   ]
 
   return (
-    <div className="px-4 pt-6 pb-2">
-      <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Quick Actions</h2>
-      <div className="grid grid-cols-4 gap-3">
-        {actions.map((action, index) => {
+    <div className="px-4 pt-5 pb-2">
+      <h2 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Quick Actions</h2>
+      <div className="grid grid-cols-5 gap-2">
+        {actions.map((action) => {
           const content = (
             <motion.div 
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="flex flex-col items-center justify-start gap-2 h-full cursor-pointer mt-2"
+              className="flex flex-col items-center justify-start gap-1.5 h-full cursor-pointer"
             >
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm ${action.bgColor}`}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-transparent border border-border/70 hover:border-border transition-colors">
                 {action.icon}
               </div>
-              <span className="text-[11px] font-semibold text-foreground text-center line-clamp-1 w-full truncate mt-1">
+              <span className="text-[10px] font-semibold text-foreground text-center line-clamp-1 w-full truncate text-ellipsis">
                 {action.label}
               </span>
             </motion.div>
@@ -70,9 +73,16 @@ export const QuickActions = () => {
         })}
       </div>
 
-      <AddProductDrawer 
-        isOpen={isAddProductOpen}
-        onClose={() => setIsAddProductOpen(false)}
+      {/* Drawer for Defining Garments We Make (Kurta, Pant, Shirt) */}
+      <AddItemWeMakeDrawer 
+        isOpen={isAddItemWeMakeOpen}
+        onClose={() => setIsAddItemWeMakeOpen(false)}
+      />
+
+      {/* Drawer for Adding Raw Materials (Cloth, Buttons, etc.) */}
+      <AddRawMaterialDrawer 
+        isOpen={isAddRawMaterialOpen}
+        onClose={() => setIsAddRawMaterialOpen(false)}
       />
 
       <AddCustomerDrawer

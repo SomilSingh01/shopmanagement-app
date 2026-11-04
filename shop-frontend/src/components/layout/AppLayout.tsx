@@ -39,25 +39,25 @@ export default function AppLayout() {
 
   const showMainHeader = mainRoutes.includes(location.pathname)
 
-  // Calculate direction synchronously during render to ensure Framer Motion
-  // gets the correct direction immediately when the component mounts
-  if (location.pathname !== prevPathname) {
-    const currentIndex = getRouteIndex(location.pathname)
-    const prevIndex = getRouteIndex(prevPathname)
-    
-    let newDirection = 0
-    if (currentIndex > prevIndex) {
-      newDirection = 1 // slide left (enter from right)
-    } else if (currentIndex < prevIndex) {
-      newDirection = -1 // slide right (enter from left)
-    } else {
-      // Same tab nested routing
-      newDirection = location.pathname.length > (routeOrder[currentIndex]?.length || 0) ? 1 : -1
+  useEffect(() => {
+    if (location.pathname !== prevPathname) {
+      const currentIndex = getRouteIndex(location.pathname)
+      const prevIndex = getRouteIndex(prevPathname)
+      
+      let newDirection = 0
+      if (currentIndex > prevIndex) {
+        newDirection = 1 // slide left (enter from right)
+      } else if (currentIndex < prevIndex) {
+        newDirection = -1 // slide right (enter from left)
+      } else {
+        // Same tab nested routing
+        newDirection = location.pathname.length > (routeOrder[currentIndex]?.length || 0) ? 1 : -1
+      }
+      
+      setDirection(newDirection)
+      setPrevPathname(location.pathname)
     }
-    
-    setDirection(newDirection)
-    setPrevPathname(location.pathname)
-  }
+  }, [location.pathname, prevPathname])
 
   const transition = {
     type: 'tween' as const,

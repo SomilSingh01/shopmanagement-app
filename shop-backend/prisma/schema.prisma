@@ -44,6 +44,7 @@ model Product {
   type        ProductType @default(STANDARD)
   price       Float
   stock       Int      @default(0)
+  lowStockThreshold Int @default(5)
   unit        String   @default("pcs")
   sku         String?
   dimensions  String?

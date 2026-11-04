@@ -32,6 +32,7 @@ export interface Product {
   type: 'STANDARD' | 'RAW_MATERIAL' | 'FINISHED_GOOD'
   price: number
   stock: number
+  lowStockThreshold?: number
   unit: string
   sku?: string
   dimensions?: string

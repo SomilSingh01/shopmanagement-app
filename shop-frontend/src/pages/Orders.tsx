@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CreateOrderDrawer } from '@/components/orders/CreateOrderDrawer'
 
-const orderStatuses = ['ALL', 'PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED']
+const orderStatuses = ['ALL', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED']
 
 import { apiClient } from '@/lib/api'
 import { useQuery } from '@tanstack/react-query'

@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Save, ShoppingCart, Plus, Minus, Trash2 } from 'lucide-react'
+import { X, Save, ShoppingCart, Plus, Minus, Trash2, UserPlus, PackagePlus } from 'lucide-react'
 import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import { apiClient } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { Product, Customer } from '@/types'
 import { CustomSelect } from '@/components/ui/CustomSelect'
+import { AddCustomerDrawer } from '@/components/customers/AddCustomerDrawer'
+import { AddProductDrawer } from '@/components/inventory/AddProductDrawer'
 
 interface CreateOrderDrawerProps {
   isOpen: boolean
@@ -22,6 +24,8 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
   
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
   const [cart, setCart] = useState<CartItem[]>([])
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false)
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false)
 
   // Fetch Customers
   const { data: customersData } = useQuery({
@@ -44,7 +48,10 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['products'] }) // stock decreases
-      toast.success('Order created successfully!')
+      queryClient.invalidateQueries({ queryKey: ['inventory-products'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['low-stock'] })
+      toast.success('Order created successfully! Stock has been deducted.')
       setSelectedCustomerId('')
       setCart([])
       onClose()
@@ -157,7 +164,16 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               {/* Customer Selection */}
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Select Client *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-foreground">Select Client *</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddCustomerOpen(true)}
+                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 py-0.5 px-1.5 rounded hover:bg-primary/10 transition-colors"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" /> + New Client
+                  </button>
+                </div>
                 <CustomSelect
                   value={selectedCustomerId}
                   onChange={(val) => setSelectedCustomerId(val)}
@@ -171,7 +187,16 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
 
               {/* Product Selection */}
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-foreground mb-1">Add Products to Cart</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-foreground">Add Products to Cart</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddProductOpen(true)}
+                    className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 py-0.5 px-1.5 rounded hover:bg-primary/10 transition-colors"
+                  >
+                    <PackagePlus className="w-3.5 h-3.5" /> + New Product
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
                   {products.filter((p: Product) => p.stock > 0).map((product: Product) => (
                     <div 
@@ -247,5 +272,11 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
     </AnimatePresence>
   )
 
-  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null
+  return typeof document !== 'undefined' ? (
+    <>
+      {createPortal(modalContent, document.body)}
+      <AddCustomerDrawer isOpen={isAddCustomerOpen} onClose={() => setIsAddCustomerOpen(false)} />
+      <AddProductDrawer isOpen={isAddProductOpen} onClose={() => setIsAddProductOpen(false)} />
+    </>
+  ) : null
 }

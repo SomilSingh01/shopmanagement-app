@@ -95,18 +95,17 @@ export class DashboardController {
   static async getLowStockAlerts(req: Request, res: Response) {
     try {
       // Fetch products with stock <= 10
-      const lowStockProducts = await prisma.product.findMany({
+      // Fetch products that are at or below their individual low-stock threshold
+      const allUserProducts = await prisma.product.findMany({
         where: {
           userId: (req as any).user.id,
-          stock: {
-            lte: 10
-          }
         },
-        orderBy: {
-          stock: 'asc'
-        },
-        take: 10
       });
+
+      const lowStockProducts = allUserProducts
+        .filter(product => product.stock <= (product.lowStockThreshold ?? 5))
+        .sort((a, b) => a.stock - b.stock)
+        .slice(0, 10);
       
       res.json(lowStockProducts);
     } catch (error) {

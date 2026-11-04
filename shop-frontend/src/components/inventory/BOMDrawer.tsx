@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, Layers, IndianRupee } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import { apiClient } from '@/lib/api'
@@ -40,11 +40,11 @@ export const BOMDrawer: React.FC<BOMDrawerProps> = ({ isOpen, onClose, product }
       apiClient.addBOMItem(product!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bom', product?.id] })
-      toast.success('Raw material added to recipe')
+      toast.success('Material added to recipe')
       setSelectedRawMaterial('')
       setQuantity('1')
     },
-    onError: () => toast.error('Failed to add raw material')
+    onError: () => toast.error('Failed to add material')
   })
 
   const removeBOMMutation = useMutation({
@@ -67,6 +67,17 @@ export const BOMDrawer: React.FC<BOMDrawerProps> = ({ isOpen, onClose, product }
     })
   }
 
+  // Calculate live recipe costs
+  const totalRecipeCost = (bomItems || []).reduce((sum: number, item: BOMItem) => {
+    const rm = allProducts.find((p: Product) => p.id === item.rawMaterialId) || item.rawMaterial
+    const cost = rm ? rm.price * item.quantity : 0
+    return sum + cost
+  }, 0)
+
+  const sellingPrice = product?.price || 0
+  const margin = sellingPrice - totalRecipeCost
+  const marginPercent = sellingPrice > 0 ? ((margin / sellingPrice) * 100).toFixed(1) : '0'
+
   const modalContent = (
     <AnimatePresence>
       {isOpen && product && (
@@ -75,7 +86,7 @@ export const BOMDrawer: React.FC<BOMDrawerProps> = ({ isOpen, onClose, product }
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[60]"
             onClick={onClose}
           />
           <motion.div
@@ -83,13 +94,16 @@ export const BOMDrawer: React.FC<BOMDrawerProps> = ({ isOpen, onClose, product }
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-            className="fixed inset-y-0 right-0 w-full md:w-[400px] bg-card shadow-2xl border-l border-border z-50 flex flex-col"
+            className="fixed inset-y-0 right-0 w-full sm:w-[450px] bg-card shadow-2xl border-l border-border z-[60] flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div>
-                <h2 className="text-lg font-bold text-foreground">Bill of Materials</h2>
-                <p className="text-sm text-muted-foreground">Recipe for {product.name}</p>
+                <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-primary" />
+                  Bill of Materials (BOM)
+                </h2>
+                <p className="text-xs text-muted-foreground">Recipe & Material Cost for {product.name}</p>
               </div>
               <button
                 onClick={onClose}
@@ -100,26 +114,28 @@ export const BOMDrawer: React.FC<BOMDrawerProps> = ({ isOpen, onClose, product }
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 space-y-5">
               {/* Add New Item */}
-              <div className="bg-muted p-4 rounded-xl space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">Add Raw Material</h3>
+              <div className="bg-muted/60 border border-border p-3.5 rounded-xl space-y-2.5">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  + Add Raw Material to Recipe
+                </h3>
                 <div className="space-y-2">
                   <CustomSelect
                     value={selectedRawMaterial}
                     onChange={(val) => setSelectedRawMaterial(val)}
-                    placeholder="Select Raw Material..."
+                    placeholder="Select Raw Material (Cloth, Buttons, etc.)..."
                     options={rawMaterials.map((rm: Product) => ({
                       value: rm.id,
-                      label: `${rm.name} (In stock: ${rm.stock})`
+                      label: `${rm.name} (₹${rm.price}/${rm.unit || 'units'} · Stock: ${rm.stock} ${rm.unit || ''})`
                     }))}
                   />
                   <div className="flex gap-2">
                     <input
                       type="number"
-                      min="0.1"
-                      step="0.1"
-                      placeholder="Quantity required"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="Qty required per 1 piece"
                       value={quantity}
                       onChange={(e) => setQuantity(e.target.value)}
                       className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
@@ -127,9 +143,9 @@ export const BOMDrawer: React.FC<BOMDrawerProps> = ({ isOpen, onClose, product }
                     <button
                       onClick={handleAdd}
                       disabled={addBOMMutation.isPending}
-                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 text-sm font-semibold flex items-center gap-1"
+                      className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 text-xs font-semibold flex items-center gap-1 shrink-0"
                     >
-                      <Plus className="w-4 h-4" /> Add
+                      <Plus className="w-4 h-4" /> Add Material
                     </button>
                   </div>
                 </div>
@@ -137,33 +153,67 @@ export const BOMDrawer: React.FC<BOMDrawerProps> = ({ isOpen, onClose, product }
 
               {/* Current Recipe */}
               <div>
-                <h3 className="text-sm font-semibold text-foreground mb-3">Current Recipe (per 1 unit)</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-foreground">Recipe Ingredients (per 1 unit)</h3>
+                  <span className="text-xs text-muted-foreground">{bomItems?.length || 0} material(s)</span>
+                </div>
                 
                 {isLoading ? (
                   <p className="text-sm text-muted-foreground text-center py-4">Loading recipe...</p>
-                ) : bomItems?.length === 0 ? (
-                  <div className="text-center py-8 bg-background border border-dashed border-border rounded-xl">
-                    <p className="text-sm text-muted-foreground">No raw materials defined.</p>
+                ) : !bomItems || bomItems.length === 0 ? (
+                  <div className="text-center py-8 bg-background border border-dashed border-border rounded-xl p-4">
+                    <p className="text-sm font-medium text-foreground">No raw materials in recipe</p>
+                    <p className="text-xs text-muted-foreground mt-1">Add cloth, buttons, zippers, or threads above to track production requirements.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {bomItems?.map((item: BOMItem) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 bg-background border border-border rounded-lg">
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">{item.rawMaterial?.name}</p>
-                          <p className="text-xs text-muted-foreground">Requires: {item.quantity} units</p>
+                    {bomItems.map((item: BOMItem) => {
+                      const rm = allProducts.find((p: Product) => p.id === item.rawMaterialId) || item.rawMaterial
+                      const itemCost = rm ? rm.price * item.quantity : 0
+                      return (
+                        <div key={item.id} className="flex items-center justify-between p-3 bg-background border border-border rounded-lg">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{rm?.name || 'Unknown Material'}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.quantity} {rm?.unit || 'units'} @ ₹{rm?.price || 0}/{rm?.unit || 'unit'} = 
+                              <strong className="text-foreground ml-1">₹{itemCost.toFixed(2)}</strong>
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => removeBOMMutation.mutate(item.id)}
+                            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => removeBOMMutation.mutate(item.id)}
-                          className="p-1.5 text-muted-foreground hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
+
+              {/* Cost & Profitability Summary Card */}
+              {bomItems && bomItems.length > 0 && (
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2 text-sm">
+                  <h4 className="font-semibold text-foreground text-xs uppercase tracking-wider">
+                    Unit Cost & Margin Breakdown
+                  </h4>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Total Raw Material Cost:</span>
+                    <span className="font-bold text-foreground">₹{totalRecipeCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Selling Price:</span>
+                    <span className="font-semibold text-foreground">₹{sellingPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-primary/20 pt-2 flex justify-between font-semibold text-sm">
+                    <span>Gross Profit / Margin:</span>
+                    <span className={margin >= 0 ? 'text-success' : 'text-destructive'}>
+                      ₹{margin.toFixed(2)} ({marginPercent}%)
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         </>

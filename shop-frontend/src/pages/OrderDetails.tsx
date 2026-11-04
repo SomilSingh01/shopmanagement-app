@@ -65,6 +65,9 @@ export default function OrderDetailsPage() {
       queryClient.invalidateQueries({ queryKey: ['order', id] })
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['inventory-products'] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
       toast.success('Order status updated successfully')
     },
     onError: () => {
@@ -256,21 +259,21 @@ export default function OrderDetailsPage() {
 
       {/* Action Bar (Scrolls with page) */}
       <div className="p-4 mt-4">
-        <div className="flex items-center justify-center gap-3 max-w-md mx-auto">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md mx-auto">
           {order.status === 'PENDING' && (
             <button 
               disabled={isUpdating}
               onClick={() => handleStatusUpdate('PROCESSING')}
-              className="flex-1 bg-info hover:bg-info/90 text-info-foreground font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-info/20 transition-all disabled:opacity-50"
+              className="w-full sm:flex-1 bg-info hover:bg-info/90 text-info-foreground font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-info/20 transition-all disabled:opacity-50"
             >
-              Start Production
+              Confirm & Process Order
             </button>
           )}
           {order.status === 'PROCESSING' && (
             <button 
               disabled={isUpdating}
               onClick={() => handleStatusUpdate('SHIPPED')}
-              className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-success/20 transition-all disabled:opacity-50"
+              className="w-full sm:flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-success/20 transition-all disabled:opacity-50"
             >
               Mark as Shipped
             </button>
@@ -279,17 +282,39 @@ export default function OrderDetailsPage() {
             <button 
               disabled={isUpdating}
               onClick={() => handleStatusUpdate('DELIVERED')}
-              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+              className="w-full sm:flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
             >
               Mark as Delivered
             </button>
           )}
-          {(order.status === 'DELIVERED' || order.status === 'CANCELLED') && (
+          {order.status === 'DELIVERED' && (
             <button 
               disabled
-              className="flex-1 bg-muted text-muted-foreground font-semibold py-3.5 px-4 rounded-xl cursor-not-allowed"
+              className="w-full sm:flex-1 bg-muted text-muted-foreground font-semibold py-3.5 px-4 rounded-xl cursor-not-allowed"
             >
-              Order Completed
+              Order Delivered & Completed
+            </button>
+          )}
+          {order.status === 'CANCELLED' && (
+            <button 
+              disabled
+              className="w-full sm:flex-1 bg-destructive/10 text-destructive font-semibold py-3.5 px-4 rounded-xl cursor-not-allowed border border-destructive/20"
+            >
+              Order Cancelled (Stock Restored)
+            </button>
+          )}
+          {/* Allow cancelling if order is not already delivered or cancelled */}
+          {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+            <button
+              disabled={isUpdating}
+              onClick={() => {
+                if (window.confirm('Are you sure you want to cancel this order? Stock will be restored to inventory.')) {
+                  handleStatusUpdate('CANCELLED')
+                }
+              }}
+              className="w-full sm:w-auto px-4 py-3.5 border border-destructive/30 text-destructive hover:bg-destructive/10 rounded-xl font-medium transition-colors text-sm disabled:opacity-50"
+            >
+              Cancel Order
             </button>
           )}
         </div>

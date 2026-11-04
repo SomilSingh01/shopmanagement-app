@@ -77,8 +77,9 @@ export class InvoiceController {
         select: { name: true, shopName: true, shopAddress: true, phone: true, email: true }
       });
 
+      const safeOrderId = typeof orderId === 'string' ? orderId : String(orderId);
       const order = await prisma.order.findFirst({
-        where: { id: orderId, userId },
+        where: { id: safeOrderId, userId },
         include: {
           customer: { select: { name: true, email: true, phone: true } },
           items: {

@@ -25,12 +25,13 @@ export function createApp(): Express {
   // Security Middleware
   app.use(helmet());
 
-  // Rate Limiting (100 requests per 15 minutes)
+  // Rate Limiting (100 requests per 15 mins in prod; relaxed in dev)
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: process.env.NODE_ENV === 'production' ? 100 : 10000,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => req.ip === '127.0.0.1' || req.ip === '::1' || req.hostname === 'localhost',
     message: { message: 'Too many requests, please try again later.' },
   });
   app.use(limiter);

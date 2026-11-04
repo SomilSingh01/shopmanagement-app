@@ -53,7 +53,7 @@ export const AddCustomerDrawer: React.FC<AddCustomerDrawerProps> = ({ isOpen, on
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[60]"
             onClick={onClose}
           />
           <motion.div
@@ -61,7 +61,7 @@ export const AddCustomerDrawer: React.FC<AddCustomerDrawerProps> = ({ isOpen, on
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-            className="fixed inset-y-0 right-0 w-full md:w-[400px] bg-card shadow-2xl border-l border-border z-50 flex flex-col"
+            className="fixed inset-y-0 right-0 w-full md:w-[400px] bg-card shadow-2xl border-l border-border z-[60] flex flex-col"
           >
             <div className="flex items-center justify-between p-4 border-b border-border bg-card">
               <div className="flex items-center gap-3">

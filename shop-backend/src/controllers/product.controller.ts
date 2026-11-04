@@ -3,10 +3,11 @@ import { prisma } from '../prisma';
 import { z } from 'zod';
 
 const createProductSchema = z.object({
-  name: z.string().min(2),
+  name: z.string().min(1),
   description: z.string().optional(),
-  price: z.number().positive(),
+  price: z.number().nonnegative(),
   stock: z.number().int().nonnegative().default(0),
+  lowStockThreshold: z.number().int().nonnegative().optional().default(5),
   unit: z.string().optional().default('pcs'),
   sku: z.string().optional(),
   dimensions: z.string().optional(),

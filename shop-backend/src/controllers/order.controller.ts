@@ -73,30 +73,66 @@ export class OrderController {
   static async create(req: Request, res: Response) {
     try {
       const data = createOrderSchema.parse(req.body);
-      const userId = req.user?.id;
+      const userId = (req as any).user?.id;
 
       if (!userId) {
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      // Calculate total
+      // 1. Verify customer exists and belongs to this user
+      const customer = await prisma.customer.findFirst({
+        where: { id: data.customerId, userId }
+      });
+      if (!customer) {
+        return res.status(404).json({ message: 'Customer not found' });
+      }
+
+      // 2. Fetch all products and verify sufficient stock
+      const productIds = data.items.map(i => i.productId);
+      const products = await prisma.product.findMany({
+        where: { id: { in: productIds }, userId }
+      });
+
+      for (const item of data.items) {
+        const product = products.find(p => p.id === item.productId);
+        if (!product) {
+          return res.status(404).json({ message: `Product not found or unauthorized` });
+        }
+        if (product.stock < item.quantity) {
+          return res.status(400).json({
+            message: `Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`
+          });
+        }
+      }
+
+      // 3. Calculate total
       const total = data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-      // Create order and order items in a transaction
-      const order = await prisma.order.create({
-        data: {
-          total,
-          userId,
-          customerId: data.customerId,
-          items: {
-            create: data.items.map(item => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              price: item.price,
-            })),
+      // 4. Atomically deduct stock and create order with items
+      const order = await prisma.$transaction(async (tx) => {
+        for (const item of data.items) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { decrement: item.quantity } }
+          });
+        }
+
+        return tx.order.create({
+          data: {
+            total,
+            userId,
+            customerId: data.customerId,
+            status: 'PROCESSING', // Finished goods go straight to Processing
+            items: {
+              create: data.items.map(item => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: item.price,
+              })),
+            },
           },
-        },
-        include: { items: true },
+          include: { items: true, customer: true },
+        });
       });
 
       res.status(201).json(order);
@@ -116,14 +152,48 @@ export class OrderController {
       const id = req.params.id as string;
       const { status } = updateOrderStatusSchema.parse(req.body);
       
-      const order = await prisma.order.update({
+      const existingOrder = await prisma.order.findFirst({
         where: { id, userId },
-        data: { status },
+        include: { items: true }
+      });
+      if (!existingOrder) return res.status(404).json({ message: 'Order not found' });
+
+      // If status hasn't changed, return early
+      if (existingOrder.status === status) {
+        return res.json(existingOrder);
+      }
+
+      // Execute status update and stock reconciliation atomically
+      const updatedOrder = await prisma.$transaction(async (tx) => {
+        // If cancelling order: restore stock back to inventory
+        if (status === 'CANCELLED' && existingOrder.status !== 'CANCELLED') {
+          for (const item of existingOrder.items) {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { increment: item.quantity } }
+            });
+          }
+        }
+        // If reactivating from cancelled: re-deduct stock
+        else if (existingOrder.status === 'CANCELLED' && status !== 'CANCELLED') {
+          for (const item of existingOrder.items) {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { decrement: item.quantity } }
+            });
+          }
+        }
+
+        return tx.order.update({
+          where: { id },
+          data: { status },
+        });
       });
       
-      res.json(order);
+      res.json(updatedOrder);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ errors: (error as any).errors });
+      console.error('Update Order Status Error:', error);
       res.status(500).json({ message: 'Internal server error' });
     }
   }
