@@ -4,17 +4,21 @@ export class EmailService {
   private static get SMTP_USER() { return process.env.SMTP_USER || process.env.SENDER_EMAIL || ''; }
   private static get SMTP_PASS() { return process.env.SMTP_PASS || process.env.BREVO_API_KEY || ''; }
   private static get SENDER_EMAIL() { return process.env.SMTP_SENDER || process.env.SENDER_EMAIL || 'noreply@shopmanager.com'; }
+  private static get SMTP_PORT() { return parseInt(process.env.SMTP_PORT || '2525', 10); }
   private static SENDER_NAME = 'Shop Manager';
 
   private static getTransporter() {
     return nodemailer.createTransport({
       host: 'smtp-relay.brevo.com',
-      port: 587,
-      secure: false, // true for 465, false for other ports
+      port: this.SMTP_PORT,
+      secure: this.SMTP_PORT === 465,
       auth: {
         user: this.SMTP_USER,
         pass: this.SMTP_PASS,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
     });
   }
 
