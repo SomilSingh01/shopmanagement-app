@@ -4,10 +4,11 @@ import { AuthService } from '../services/auth.service';
 import { EmailService } from '../services/email.service';
 import { z } from 'zod';
 
+const isProduction = process.env.NODE_ENV === 'production';
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
+  secure: isProduction,
+  sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
@@ -290,7 +291,7 @@ export class AuthController {
   }
 
   static async logout(req: Request, res: Response) {
-    res.clearCookie('token');
+    res.clearCookie('token', cookieOptions);
     res.status(200).json({ message: 'Logged out successfully' });
   }
 
