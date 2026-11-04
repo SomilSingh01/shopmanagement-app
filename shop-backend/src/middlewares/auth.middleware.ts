@@ -11,7 +11,7 @@ declare global {
 }
 
 export const authenticate = (req: Request, res: Response, next: NextFunction) => {
-  const token = req.cookies?.token;
+  const token = req.cookies?.token || req.headers.authorization?.replace(/^Bearer\s+/i, '');
 
   if (!token) {
     return res.status(401).json({ message: 'Unauthorized - No token provided' });
@@ -27,7 +27,7 @@ export const authenticate = (req: Request, res: Response, next: NextFunction) =>
 };
 
 export const optionalAuthenticate = (req: Request, res: Response, next: NextFunction) => {
-  const token = req.cookies?.token;
+  const token = req.cookies?.token || req.headers.authorization?.replace(/^Bearer\s+/i, '');
 
   if (!token) {
     return next();

@@ -21,14 +21,31 @@ class ApiClient {
   }
 
   private setupInterceptors() {
+    /* Request Interceptor (Fallback for browsers/iOS blocking cross-domain cookies) */
+    this.client.interceptors.request.use(
+      (config) => {
+        if (typeof window !== 'undefined') {
+          const token = localStorage.getItem('auth_token')
+          if (token && config.headers) {
+            config.headers.Authorization = `Bearer ${token}`
+          }
+        }
+        return config
+      },
+      (error) => Promise.reject(error)
+    )
+
     /* Response Interceptor */
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
         if (error.response?.status === 401) {
-          // If the cookie is expired or invalid, redirect to login
-          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-            window.location.href = '/login'
+          // If the token or cookie is expired or invalid, clear token and redirect to login
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('auth_token')
+            if (window.location.pathname !== '/login') {
+              window.location.href = '/login'
+            }
           }
         }
         return Promise.reject(error)

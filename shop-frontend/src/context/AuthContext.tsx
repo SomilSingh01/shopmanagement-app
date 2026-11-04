@@ -38,8 +38,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setIsLoading(true)
       
-      const { user: userData } = await apiClient.login(email, password)
-      setUser(userData)
+      const response = await apiClient.login(email, password)
+      if (response?.token) {
+        localStorage.setItem('auth_token', response.token)
+      }
+      setUser(response?.user || response)
     } catch (error: unknown) {
       throw error
     } finally {
@@ -50,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = async () => {
     try {
       setIsLoading(true)
+      localStorage.removeItem('auth_token')
       await apiClient.logout()
       setUser(null)
       toast.success('Logged out successfully')

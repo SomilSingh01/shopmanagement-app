@@ -90,7 +90,7 @@ export class AuthController {
       // Return user without password
       const { password: _, ...userWithoutPassword } = user;
       res.cookie('token', token, cookieOptions);
-      res.status(201).json({ user: userWithoutPassword });
+      res.status(201).json({ user: userWithoutPassword, token });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: 'Validation error', errors: (error as any).errors });
@@ -327,7 +327,7 @@ export class AuthController {
       
       const { password: _, ...userWithoutPassword } = user;
       res.cookie('token', token, cookieOptions);
-      res.json({ user: userWithoutPassword });
+      res.json({ user: userWithoutPassword, token });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: 'Validation error', errors: (error as any).errors });
