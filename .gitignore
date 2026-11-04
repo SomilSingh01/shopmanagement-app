@@ -3,3 +3,8 @@ dist
 .env
 .env.*
 .DS_Store
+
+# Local sensitive/interview notes & postman collections
+interview-question-answer.md
+ShopManager.postman_collection.json
+
