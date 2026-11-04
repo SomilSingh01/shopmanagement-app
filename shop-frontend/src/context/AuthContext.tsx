@@ -40,13 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       
       const { user: userData } = await apiClient.login(email, password)
       setUser(userData)
-      toast.success('Logged in successfully')
     } catch (error: unknown) {
-      const message =
-        (axios.isAxiosError(error) && error.response?.data?.message) ||
-        (error instanceof Error && error.message) ||
-        'Login failed. Please try again.'
-      toast.error(message)
       throw error
     } finally {
       setIsLoading(false)

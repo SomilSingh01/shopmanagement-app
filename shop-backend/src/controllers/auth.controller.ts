@@ -12,6 +12,15 @@ const cookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
+// Rate limiting & lockout for failed login attempts
+interface LoginAttemptRecord {
+  count: number;
+  lockedUntil?: number;
+}
+const loginAttempts = new Map<string, LoginAttemptRecord>();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5-minute lockout
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
@@ -255,25 +264,63 @@ export class AuthController {
   static async login(req: Request, res: Response) {
     try {
       const { email, phone, password } = loginSchema.parse(req.body);
+      const targetIdentifier = (email || phone || '').toLowerCase().trim();
 
-      // Find user by email or phone (if we added phone to User model, but we only have email. Let's assume phone variable holds the email for now if it's an email string)
+      // Check if account is currently locked out
+      const attemptRecord = loginAttempts.get(targetIdentifier);
+      if (attemptRecord?.lockedUntil && Date.now() < attemptRecord.lockedUntil) {
+        const remainingSeconds = Math.ceil((attemptRecord.lockedUntil - Date.now()) / 1000);
+        const remainingMinutes = Math.ceil(remainingSeconds / 60);
+        return res.status(429).json({
+          message: `Too many failed login attempts. Account temporarily locked. Please try again in ${remainingMinutes} minute${remainingMinutes > 1 ? 's' : ''}.`
+        });
+      }
+
+      const handleFailedAttempt = () => {
+        const previousCount = (attemptRecord && (!attemptRecord.lockedUntil || Date.now() >= attemptRecord.lockedUntil))
+          ? attemptRecord.count
+          : 0;
+        const newCount = previousCount + 1;
+
+        if (newCount >= MAX_LOGIN_ATTEMPTS) {
+          loginAttempts.set(targetIdentifier, {
+            count: newCount,
+            lockedUntil: Date.now() + LOCKOUT_DURATION_MS
+          });
+          return res.status(429).json({
+            message: 'Too many failed login attempts (5/5). Your account is temporarily locked for 5 minutes for your security.'
+          });
+        } else {
+          loginAttempts.set(targetIdentifier, { count: newCount });
+          const remaining = MAX_LOGIN_ATTEMPTS - newCount;
+          return res.status(401).json({
+            message: `Invalid credentials. ${remaining} attempt${remaining > 1 ? 's' : ''} remaining before temporary lockout.`
+          });
+        }
+      };
+
+      // Find user by email or phone
       const user = await prisma.user.findFirst({
         where: {
           OR: [
-            { email: email || phone || '' }, // if phone holds an email
+            { email: targetIdentifier },
+            { phone: targetIdentifier },
           ]
         }
       });
       
       if (!user) {
-        return res.status(401).json({ message: 'Invalid credentials' });
+        return handleFailedAttempt();
       }
 
       // Verify password
       const isValidPassword = await AuthService.comparePasswords(password, user.password);
       if (!isValidPassword) {
-        return res.status(401).json({ message: 'Invalid credentials' });
+        return handleFailedAttempt();
       }
+
+      // Successful login -> Reset failed attempts
+      loginAttempts.delete(targetIdentifier);
 
       // Generate token
       const token = AuthService.generateToken(user.id);
