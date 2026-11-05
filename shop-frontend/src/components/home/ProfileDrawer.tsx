@@ -66,8 +66,12 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
               <div className="px-4 pb-8">
                 {/* Header */}
                 <div className="text-center mb-8 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent -mx-4 px-4 pt-6 pb-8 border-b border-border">
-                  <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-primary to-info flex items-center justify-center text-white font-bold text-4xl mx-auto mb-4 shadow-lg shadow-primary/20">
-                    {user?.name?.[0]?.toUpperCase() || 'U'}
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-border/80 shadow-lg shadow-primary/10 mx-auto mb-4 bg-card flex items-center justify-center">
+                    <img
+                      src="/shop-favicon.png"
+                      alt="Shop Favicon"
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <h2 className="text-2xl font-bold text-foreground">{user?.name}</h2>
                   <p className="text-sm text-primary font-medium mt-1">
