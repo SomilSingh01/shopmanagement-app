@@ -72,8 +72,12 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onProfileClick}
           className="flex items-center gap-3 hover:opacity-70 transition-opacity"
         >
-          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-semibold text-sm">
-            {user?.name?.[0]?.toUpperCase() || 'U'}
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-border/80 shadow-xs flex items-center justify-center bg-card shrink-0">
+            <img
+              src="/shop-favicon.png"
+              alt="Shop Favicon"
+              className="w-full h-full object-cover"
+            />
           </div>
           <div className="text-left">
             <p className="text-sm font-semibold text-foreground">
