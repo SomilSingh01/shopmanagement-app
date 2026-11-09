@@ -87,34 +87,103 @@ export class OrderController {
         return res.status(404).json({ message: 'Customer not found' });
       }
 
-      // 2. Fetch all products and verify sufficient stock
+      // 2. Fetch all products (including BOM items for finished goods) and verify sufficient stock
       const productIds = data.items.map(i => i.productId);
       const products = await prisma.product.findMany({
-        where: { id: { in: productIds }, userId }
+        where: { id: { in: productIds }, userId },
+        include: {
+          bomItems: {
+            include: { rawMaterial: true }
+          }
+        }
       });
+
+      // Track running stock balances to prevent overdraft across multiple items in the same cart
+      const stockTracker = new Map<string, number>();
 
       for (const item of data.items) {
         const product = products.find(p => p.id === item.productId);
         if (!product) {
           return res.status(404).json({ message: `Product not found or unauthorized` });
         }
-        if (product.stock < item.quantity) {
-          return res.status(400).json({
-            message: `Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.quantity}`
-          });
+
+        if (product.type === 'FINISHED_GOOD') {
+          const currentStock = stockTracker.get(product.id) ?? product.stock;
+          if (currentStock >= item.quantity) {
+            // Pre-manufactured stock covers this item
+            stockTracker.set(product.id, currentStock - item.quantity);
+          } else {
+            // Need to make remaining units from raw materials
+            const neededUnits = item.quantity - Math.max(0, currentStock);
+            stockTracker.set(product.id, 0);
+
+            if (!product.bomItems || product.bomItems.length === 0) {
+              return res.status(400).json({
+                message: `Cannot order "${product.name}": Insufficient stock and no raw materials recipe defined.`
+              });
+            }
+
+            for (const bom of product.bomItems) {
+              const neededRawQty = bom.quantity * neededUnits;
+              const availableRaw = stockTracker.get(bom.rawMaterialId) ?? bom.rawMaterial.stock;
+
+              if (availableRaw < neededRawQty) {
+                return res.status(400).json({
+                  message: `Cannot order "${product.name}": Insufficient raw material "${bom.rawMaterial.name}". Needed: ${neededRawQty} ${bom.rawMaterial.unit || 'units'}, Available: ${availableRaw}`
+                });
+              }
+
+              stockTracker.set(bom.rawMaterialId, availableRaw - neededRawQty);
+            }
+          }
+        } else {
+          const currentStock = stockTracker.get(product.id) ?? product.stock;
+          if (currentStock < item.quantity) {
+            return res.status(400).json({
+              message: `Insufficient stock for "${product.name}". Available: ${currentStock}, Requested: ${item.quantity}`
+            });
+          }
+          stockTracker.set(product.id, currentStock - item.quantity);
         }
       }
 
       // 3. Calculate total
       const total = data.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-      // 4. Atomically deduct stock and create order with items
+      // 4. Atomically deduct stock (or raw materials for made-to-order goods) and create order with items
       const order = await prisma.$transaction(async (tx) => {
         for (const item of data.items) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { stock: { decrement: item.quantity } }
-          });
+          const product = products.find(p => p.id === item.productId)!;
+
+          if (product.type === 'FINISHED_GOOD') {
+            if (product.stock >= item.quantity) {
+              await tx.product.update({
+                where: { id: item.productId },
+                data: { stock: { decrement: item.quantity } }
+              });
+            } else {
+              if (product.stock > 0) {
+                await tx.product.update({
+                  where: { id: item.productId },
+                  data: { stock: 0 }
+                });
+              }
+              const neededUnits = item.quantity - Math.max(0, product.stock);
+              for (const bom of product.bomItems) {
+                const neededRawQty = bom.quantity * neededUnits;
+                const decrementQty = Math.max(1, Math.ceil(neededRawQty));
+                await tx.product.update({
+                  where: { id: bom.rawMaterialId },
+                  data: { stock: { decrement: decrementQty } }
+                });
+              }
+            }
+          } else {
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stock: { decrement: item.quantity } }
+            });
+          }
         }
 
         return tx.order.create({

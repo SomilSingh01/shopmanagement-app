@@ -20,6 +20,7 @@ export default function InventoryPage() {
   const [isAddReadyMadeOpen, setIsAddReadyMadeOpen] = useState(false)
   const [isQuickAddModalOpen, setIsQuickAddModalOpen] = useState(false)
   const [selectedBOMProduct, setSelectedBOMProduct] = useState<Product | null>(null)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   
   const { data: productsData } = useQuery({
     queryKey: ['inventory-products'],
@@ -29,6 +30,9 @@ export default function InventoryPage() {
   const products: Product[] = productsData?.data || productsData || []
 
   const isLowStock = (product: Product) => product.stock <= (product.lowStockThreshold ?? 5)
+  const lowStockReadyMade = useMemo(() => products.filter((p: Product) => p.type === 'STANDARD' && isLowStock(p)), [products])
+  const lowStockRawMaterials = useMemo(() => products.filter((p: Product) => p.type === 'RAW_MATERIAL' && isLowStock(p)), [products])
+  const totalLowStock = lowStockReadyMade.length + lowStockRawMaterials.length
 
   // Filter products by tab and search
   const filteredProducts = useMemo(() => {
@@ -46,11 +50,11 @@ export default function InventoryPage() {
   const rawMaterials = products.filter(p => p.type === 'RAW_MATERIAL')
   const finishedGoods = products.filter(p => p.type === 'FINISHED_GOOD')
   
-  const lowStockCount = products.filter(isLowStock).length
   const totalValue = products.reduce((acc: number, p: Product) => acc + (p.price * p.stock), 0)
 
   // Handle header action button depending on active tab
   const handleHeaderAdd = () => {
+    setEditingProduct(null)
     if (activeTab === 'STANDARD') {
       setIsAddReadyMadeOpen(true)
     } else if (activeTab === 'RAW_MATERIAL') {
@@ -59,6 +63,19 @@ export default function InventoryPage() {
       setIsAddItemWeMakeOpen(true)
     } else {
       setIsQuickAddModalOpen(true)
+    }
+  }
+
+  // Handle clicking on an inventory card to edit it
+  const handleCardClick = (product: Product) => {
+    setEditingProduct(product)
+    if (product.type === 'STANDARD') {
+      setIsAddReadyMadeOpen(true)
+    } else if (product.type === 'RAW_MATERIAL') {
+      setIsAddRawMaterialOpen(true)
+    } else if (product.type === 'FINISHED_GOOD') {
+      setSelectedBOMProduct(product)
+      setIsBOMDrawerOpen(true)
     }
   }
 
@@ -137,7 +154,7 @@ export default function InventoryPage() {
             }`}
           >
             <ShoppingBag className="w-3.5 h-3.5" />
-            🛍️ Ready-Made ({readyMadeItems.length})
+            Ready-Made ({readyMadeItems.length})
           </button>
 
           <button
@@ -149,7 +166,7 @@ export default function InventoryPage() {
             }`}
           >
             <Scissors className="w-3.5 h-3.5" />
-            🧵 Raw Materials ({rawMaterials.length})
+            Raw Materials ({rawMaterials.length})
           </button>
 
           <button
@@ -161,7 +178,7 @@ export default function InventoryPage() {
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            👗 Items We Make ({finishedGoods.length})
+            Items We Make ({finishedGoods.length})
           </button>
         </div>
 
@@ -186,28 +203,70 @@ export default function InventoryPage() {
         </div>
 
         {/* Low Stock Alerts Banner */}
-        {lowStockCount > 0 && (
-          <div className="mt-4 bg-destructive/10 border border-destructive/20 rounded-2xl p-3.5 flex items-start gap-3">
-            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-            <div className="flex-1 text-xs">
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="font-bold text-destructive">
-                  Low Stock Warning ({lowStockCount} item{lowStockCount > 1 ? 's' : ''})
-                </p>
-                <span className="text-[10px] text-muted-foreground font-semibold">Replenish Needed</span>
+        {totalLowStock > 0 && (
+          <div className="mt-4 bg-destructive/5 border border-destructive/20 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-destructive/15 pb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+                <h3 className="text-xs font-bold text-destructive uppercase tracking-wide">
+                  Low Stock Warning ({totalLowStock} item{totalLowStock > 1 ? 's' : ''})
+                </h3>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {products.filter(isLowStock).map((p: Product) => (
-                  <span
-                    key={p.id}
-                    className="bg-card text-foreground text-[11px] px-2.5 py-1 rounded-lg border border-destructive/30 font-medium inline-flex items-center gap-1.5 shadow-xs"
-                  >
-                    <span>{p.name}:</span>
-                    <strong className="text-destructive font-bold">{p.stock} {p.unit || 'pcs'}</strong>
-                    <span className="text-muted-foreground text-[10px]">(min {p.lowStockThreshold ?? 5})</span>
-                  </span>
-                ))}
-              </div>
+              <span className="text-[10px] font-semibold text-muted-foreground">Replenish Needed</span>
+            </div>
+
+            <div className="space-y-3">
+              {/* Ready-Made Section */}
+              {lowStockReadyMade.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                      Ready-Made Items ({lowStockReadyMade.length})
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">Click item to restock/edit</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {lowStockReadyMade.map((p: Product) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleCardClick(p)}
+                        className="bg-card text-foreground text-[11px] px-2.5 py-1 rounded-lg border border-blue-500/30 hover:border-blue-500 hover:bg-blue-500/5 transition-colors font-medium inline-flex items-center gap-1.5 shadow-xs cursor-pointer text-left"
+                      >
+                        <span className="font-semibold">{p.name}:</span>
+                        <strong className="text-destructive font-bold">{p.stock} {p.unit || 'pcs'}</strong>
+                        <span className="text-muted-foreground text-[10px]">(min {p.lowStockThreshold ?? 5})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Raw Materials Section */}
+              {lowStockRawMaterials.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                      Raw Materials ({lowStockRawMaterials.length})
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">Click item to restock/edit</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {lowStockRawMaterials.map((p: Product) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleCardClick(p)}
+                        className="bg-card text-foreground text-[11px] px-2.5 py-1 rounded-lg border border-amber-500/30 hover:border-amber-500 hover:bg-amber-500/5 transition-colors font-medium inline-flex items-center gap-1.5 shadow-xs cursor-pointer text-left"
+                      >
+                        <span className="font-semibold">{p.name}:</span>
+                        <strong className="text-destructive font-bold">{p.stock} {p.unit || 'meters'}</strong>
+                        <span className="text-muted-foreground text-[10px]">(min {p.lowStockThreshold ?? 5})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -225,13 +284,14 @@ export default function InventoryPage() {
             return (
               <div
                 key={product.id}
-                className={`bg-card border rounded-2xl p-4 sm:p-5 transition-all shadow-xs hover:shadow-md ${
+                onClick={() => handleCardClick(product)}
+                className={`bg-card border rounded-2xl p-4 sm:p-5 transition-all shadow-xs hover:shadow-md cursor-pointer group ${
                   isReadyMade
-                    ? 'border-blue-500/25 hover:border-blue-500/50'
+                    ? 'border-blue-500/25 hover:border-blue-500/60 hover:bg-blue-500/[0.02]'
                     : isRaw 
-                    ? 'border-amber-500/25 hover:border-amber-500/50' 
+                    ? 'border-amber-500/25 hover:border-amber-500/60 hover:bg-amber-500/[0.02]' 
                     : isFinished 
-                    ? 'border-purple-500/25 hover:border-purple-500/50'
+                    ? 'border-purple-500/25 hover:border-purple-500/60 hover:bg-purple-500/[0.02]'
                     : 'border-border hover:border-primary/40'
                 }`}
               >
@@ -276,7 +336,7 @@ export default function InventoryPage() {
                                 : 'bg-muted text-muted-foreground'
                             }`}
                           >
-                            {isReadyMade ? '🛍️ Ready-Made' : isRaw ? '🧵 Raw Material' : '👗 Item We Make'}
+                            {isReadyMade ? 'Ready-Made' : isRaw ? 'Raw Material' : 'Item We Make'}
                           </span>
                         </div>
 
@@ -307,10 +367,10 @@ export default function InventoryPage() {
 
                       <div className="text-right">
                         <span className="text-muted-foreground text-[11px] font-medium">
-                          {isRaw ? 'Available Stock' : isReadyMade ? 'Stock on Rack' : 'Ready in Workshop'}
+                          {isRaw ? 'Available Stock' : isReadyMade ? 'Stock on Rack' : 'Production Type'}
                         </span>
                         <p className={`text-sm sm:text-base font-extrabold mt-0.5 ${low && (isRaw || isReadyMade) ? 'text-destructive' : 'text-foreground'}`}>
-                          {product.stock} {product.unit || 'pcs'}
+                          {isFinished ? 'Made to Order' : `${product.stock} ${product.unit || 'pcs'}`}
                         </p>
                       </div>
                     </div>
@@ -365,7 +425,10 @@ export default function InventoryPage() {
 
       {/* Floating Action Button (FAB) */}
       <motion.button
-        onClick={() => setIsQuickAddModalOpen(true)}
+        onClick={() => {
+          setEditingProduct(null)
+          setIsQuickAddModalOpen(true)
+        }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         className="fixed bottom-24 right-6 w-14 h-14 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full flex items-center justify-center shadow-xl z-30"
@@ -408,6 +471,7 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setEditingProduct(null)
                     setIsQuickAddModalOpen(false)
                     setIsAddReadyMadeOpen(true)
                   }}
@@ -418,7 +482,7 @@ export default function InventoryPage() {
                       <ShoppingBag className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-foreground">🛍️ Ready-Made Garment</p>
+                      <p className="text-xs font-bold text-foreground">Ready-Made Garment</p>
                       <p className="text-[11px] text-muted-foreground">Direct retail item (Shirt, Jeans, Belt)</p>
                     </div>
                   </div>
@@ -429,6 +493,7 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setEditingProduct(null)
                     setIsQuickAddModalOpen(false)
                     setIsAddRawMaterialOpen(true)
                   }}
@@ -439,7 +504,7 @@ export default function InventoryPage() {
                       <Scissors className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-foreground">🧵 Raw Material</p>
+                      <p className="text-xs font-bold text-foreground">Raw Material</p>
                       <p className="text-[11px] text-muted-foreground">Fabric, cloth in meters, buttons, zips</p>
                     </div>
                   </div>
@@ -450,6 +515,7 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setEditingProduct(null)
                     setIsQuickAddModalOpen(false)
                     setIsAddItemWeMakeOpen(true)
                   }}
@@ -460,7 +526,7 @@ export default function InventoryPage() {
                       <Layers className="w-5 h-5" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-foreground">👗 Item We Make</p>
+                      <p className="text-xs font-bold text-foreground">Item We Make</p>
                       <p className="text-[11px] text-muted-foreground">Design template with recipe (Kurta, Suit)</p>
                     </div>
                   </div>
@@ -475,22 +541,36 @@ export default function InventoryPage() {
       {/* Drawers */}
       <AddReadyMadeDrawer
         isOpen={isAddReadyMadeOpen}
-        onClose={() => setIsAddReadyMadeOpen(false)}
+        onClose={() => {
+          setIsAddReadyMadeOpen(false)
+          setEditingProduct(null)
+        }}
+        product={editingProduct}
       />
 
       <AddRawMaterialDrawer
         isOpen={isAddRawMaterialOpen}
-        onClose={() => setIsAddRawMaterialOpen(false)}
+        onClose={() => {
+          setIsAddRawMaterialOpen(false)
+          setEditingProduct(null)
+        }}
+        product={editingProduct}
       />
 
       <AddItemWeMakeDrawer
         isOpen={isAddItemWeMakeOpen}
-        onClose={() => setIsAddItemWeMakeOpen(false)}
+        onClose={() => {
+          setIsAddItemWeMakeOpen(false)
+          setEditingProduct(null)
+        }}
       />
 
       <BOMDrawer 
         isOpen={isBOMDrawerOpen} 
-        onClose={() => setIsBOMDrawerOpen(false)} 
+        onClose={() => {
+          setIsBOMDrawerOpen(false)
+          setSelectedBOMProduct(null)
+        }} 
         product={selectedBOMProduct} 
       />
     </div>

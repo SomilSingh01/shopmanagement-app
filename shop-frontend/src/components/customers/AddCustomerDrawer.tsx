@@ -25,6 +25,7 @@ export const AddCustomerDrawer: React.FC<AddCustomerDrawerProps> = ({ isOpen, on
     mutationFn: (data: any) => apiClient.createCustomer(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
       toast.success('Client added successfully!')
       setFormData({ name: '', email: '', phone: '', address: '' })
       onClose()

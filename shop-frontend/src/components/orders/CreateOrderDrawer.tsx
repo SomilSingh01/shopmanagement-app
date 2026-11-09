@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import type { Product, Customer } from '@/types'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { AddCustomerDrawer } from '@/components/customers/AddCustomerDrawer'
-import { AddProductDrawer } from '@/components/inventory/AddProductDrawer'
+import { AddReadyMadeDrawer } from '@/components/inventory/AddReadyMadeDrawer'
 
 interface CreateOrderDrawerProps {
   isOpen: boolean
@@ -23,9 +23,11 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
   const queryClient = useQueryClient()
   
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
+  const [clientError, setClientError] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false)
   const [isAddProductOpen, setIsAddProductOpen] = useState(false)
+  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'STANDARD' | 'FINISHED_GOOD' | 'RAW_MATERIAL'>('ALL')
 
   // Fetch Customers
   const { data: customersData } = useQuery({
@@ -35,6 +37,13 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
   })
   const customers = customersData?.data || customersData || []
 
+  // Auto-select first client by default so POS checkout is never blocked
+  React.useEffect(() => {
+    if (customers.length > 0 && !selectedCustomerId) {
+      setSelectedCustomerId(customers[0].id)
+    }
+  }, [customers, selectedCustomerId])
+
   // Fetch Products
   const { data: productsData } = useQuery({
     queryKey: ['products'],
@@ -43,10 +52,21 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
   })
   const products = productsData?.data || productsData || []
 
+  const readyMadeCount = useMemo(() => products.filter((p: Product) => p.type === 'STANDARD').length, [products])
+  const finishedCount = useMemo(() => products.filter((p: Product) => p.type === 'FINISHED_GOOD').length, [products])
+  const rawCount = useMemo(() => products.filter((p: Product) => p.type === 'RAW_MATERIAL').length, [products])
+  const totalCount = products.length
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((p: Product) => categoryFilter === 'ALL' || p.type === categoryFilter)
+  }, [products, categoryFilter])
+
   const createOrderMutation = useMutation({
     mutationFn: (data: any) => apiClient.createOrder(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-orders'] })
       queryClient.invalidateQueries({ queryKey: ['products'] }) // stock decreases
       queryClient.invalidateQueries({ queryKey: ['inventory-products'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
@@ -65,21 +85,54 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
     return cart.reduce((total, item) => total + (item.price * item.cartQuantity), 0)
   }, [cart])
 
-  const addToCart = (product: Product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id)
-      if (existing) {
-        if (existing.cartQuantity >= product.stock) {
-          toast.error(`Only ${product.stock} in stock!`)
-          return prev
+  const checkProductStock = (product: Product, currentCartQty: number = 0) => {
+    if (product.type === 'FINISHED_GOOD') {
+      // If there is existing finished stock that covers this quantity
+      if (product.stock > 0 && product.stock >= currentCartQty + 1) {
+        return { isOutOfStock: false, reason: '' }
+      }
+      // Must build from raw materials
+      if (!product.bomItems || product.bomItems.length === 0) {
+        return { isOutOfStock: true, reason: 'Raw materials not defined' }
+      }
+      const neededGarments = (currentCartQty + 1) - Math.max(0, product.stock)
+      for (const bom of product.bomItems) {
+        const required = bom.quantity * neededGarments
+        const liveRaw = products.find((p: Product) => p.id === bom.rawMaterialId) || bom.rawMaterial
+        const availableRaw = liveRaw?.stock ?? 0
+        if (availableRaw < required) {
+          const rawName = liveRaw?.name || 'Raw material'
+          return { 
+            isOutOfStock: true, 
+            reason: `${rawName} out of stock` 
+          }
         }
+      }
+      return { isOutOfStock: false, reason: '' }
+    } else {
+      const isOut = product.stock <= currentCartQty
+      return { 
+        isOutOfStock: isOut, 
+        reason: isOut ? 'Out of Stock (0)' : '' 
+      }
+    }
+  }
+
+  const addToCart = (product: Product) => {
+    const existing = cart.find(item => item.id === product.id)
+    const currentQty = existing ? existing.cartQuantity : 0
+    const stockStatus = checkProductStock(product, currentQty)
+
+    if (stockStatus.isOutOfStock) {
+      toast.error(`Cannot order "${product.name}": ${stockStatus.reason}`)
+      return
+    }
+
+    setCart(prev => {
+      if (existing) {
         return prev.map(item => 
           item.id === product.id ? { ...item, cartQuantity: item.cartQuantity + 1 } : item
         )
-      }
-      if (product.stock <= 0) {
-        toast.error('Out of stock!')
-        return prev
       }
       return [...prev, { ...product, cartQuantity: 1 }]
     })
@@ -89,11 +142,14 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
     setCart(prev => prev.map(item => {
       if (item.id === id) {
         const newQ = item.cartQuantity + delta
-        if (newQ > item.stock) {
-          toast.error(`Only ${item.stock} in stock!`)
-          return item
-        }
         if (newQ < 1) return item
+        if (delta > 0) {
+          const stockStatus = checkProductStock(item, item.cartQuantity)
+          if (stockStatus.isOutOfStock) {
+            toast.error(`Cannot add more "${item.name}": ${stockStatus.reason}`)
+            return item
+          }
+        }
         return { ...item, cartQuantity: newQ }
       }
       return item
@@ -106,14 +162,16 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedCustomerId) {
-      toast.error('Please select a customer')
-      return
-    }
     if (cart.length === 0) {
-      toast.error('Cart is empty')
+      toast.error('Your cart is empty. Please add a product first.')
       return
     }
+    if (!selectedCustomerId) {
+      setClientError(true)
+      toast.error('Please select a client to complete the order')
+      return
+    }
+    setClientError(false)
     
     const items = cart.map(item => ({
       productId: item.id,
@@ -174,20 +232,28 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
                     <UserPlus className="w-3.5 h-3.5" /> + New Client
                   </button>
                 </div>
-                <CustomSelect
-                  value={selectedCustomerId}
-                  onChange={(val) => setSelectedCustomerId(val)}
-                  placeholder="-- Choose a Client --"
-                  options={customers.map((c: Customer) => ({
-                    value: c.id,
-                    label: c.name
-                  }))}
-                />
+                <div className={`transition-all ${clientError ? 'ring-2 ring-destructive rounded-lg' : ''}`}>
+                  <CustomSelect
+                    value={selectedCustomerId}
+                    onChange={(val) => {
+                      setSelectedCustomerId(val)
+                      if (val) setClientError(false)
+                    }}
+                    placeholder="-- Choose a Client --"
+                    options={customers.map((c: Customer) => ({
+                      value: c.id,
+                      label: c.name
+                    }))}
+                  />
+                </div>
+                {clientError && (
+                  <p className="text-xs text-destructive mt-1 font-medium">Please select a client to complete the order</p>
+                )}
               </div>
 
               {/* Product Selection */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-1">
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
                   <label className="block text-sm font-medium text-foreground">Add Products to Cart</label>
                   <button
                     type="button"
@@ -197,20 +263,119 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
                     <PackagePlus className="w-3.5 h-3.5" /> + New Product
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
-                  {products.filter((p: Product) => p.stock > 0).map((product: Product) => (
-                    <div 
-                      key={product.id} 
-                      onClick={() => addToCart(product)}
-                      className="border border-border p-2 rounded-lg cursor-pointer hover:border-primary transition-colors flex justify-between items-center bg-background"
-                    >
-                      <div className="truncate pr-2">
-                        <p className="text-sm font-medium text-foreground truncate">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">₹{product.price} ({product.stock} in stock)</p>
-                      </div>
-                      <Plus className="w-4 h-4 text-primary shrink-0" />
+
+                {/* 3 Categories Filter Tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setCategoryFilter('ALL')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-colors shrink-0 text-[11px] ${
+                      categoryFilter === 'ALL'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    All ({totalCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryFilter('STANDARD')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-colors shrink-0 text-[11px] ${
+                      categoryFilter === 'STANDARD'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Ready-Made ({readyMadeCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryFilter('FINISHED_GOOD')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-colors shrink-0 text-[11px] ${
+                      categoryFilter === 'FINISHED_GOOD'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Items We Make ({finishedCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryFilter('RAW_MATERIAL')}
+                    className={`px-2.5 py-1 rounded-lg font-bold transition-colors shrink-0 text-[11px] ${
+                      categoryFilter === 'RAW_MATERIAL'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Raw Material ({rawCount})
+                  </button>
+                </div>
+
+                {/* Products Grid */}
+                <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto p-1">
+                  {filteredProducts.length === 0 ? (
+                    <div className="col-span-2 text-center py-6 text-xs text-muted-foreground border border-dashed border-border rounded-xl">
+                      No products found in this category.
                     </div>
-                  ))}
+                  ) : (
+                    filteredProducts.map((product: Product) => {
+                      const isMadeToOrder = product.type === 'FINISHED_GOOD'
+                      const stockStatus = checkProductStock(product, 0)
+                      const isOutOfStock = stockStatus.isOutOfStock
+
+                      return (
+                        <div 
+                          key={product.id} 
+                          onClick={() => {
+                            if (isOutOfStock) {
+                              toast.error(`Cannot order "${product.name}": ${stockStatus.reason}`)
+                              return
+                            }
+                            addToCart(product)
+                          }}
+                          className={`border p-2 rounded-xl transition-all flex justify-between items-center bg-background ${
+                            isOutOfStock
+                              ? 'opacity-40 cursor-not-allowed bg-muted/40 border-border/40 select-none'
+                              : 'cursor-pointer shadow-2xs hover:shadow-xs ' + (
+                                  product.type === 'STANDARD'
+                                    ? 'border-blue-500/20 hover:border-blue-500/50'
+                                    : product.type === 'FINISHED_GOOD'
+                                    ? 'border-purple-500/20 hover:border-purple-500/50'
+                                    : 'border-amber-500/20 hover:border-amber-500/50'
+                                )
+                          }`}
+                        >
+                          <div className="truncate pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                product.type === 'STANDARD'
+                                  ? 'bg-blue-500'
+                                  : product.type === 'FINISHED_GOOD'
+                                  ? 'bg-purple-500'
+                                  : 'bg-amber-500'
+                              }`} />
+                              <p className="text-xs font-bold text-foreground truncate">{product.name}</p>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              {isOutOfStock ? (
+                                <span className="text-destructive font-medium truncate block">
+                                  ₹{product.price} • {stockStatus.reason}
+                                </span>
+                              ) : isMadeToOrder ? (
+                                <span>
+                                  ₹{product.price} • {product.stock > 0 ? `${product.stock} in stock` : 'Ready to make'}
+                                </span>
+                              ) : (
+                                <span>₹{product.price} ({product.stock} {product.unit || 'pcs'})</span>
+                              )}
+                            </p>
+                          </div>
+                          <Plus className={`w-4 h-4 shrink-0 ${isOutOfStock ? 'text-muted-foreground/30' : 'text-primary'}`} />
+                        </div>
+                      )
+                    })
+                  )}
                 </div>
               </div>
 
@@ -257,10 +422,12 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
                 <span>₹{totalAmount.toFixed(2)}</span>
               </div>
               <button
-                type="submit"
+                type="button"
                 onClick={handleSubmit}
-                disabled={createOrderMutation.isPending || cart.length === 0 || !selectedCustomerId}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity flex justify-center items-center gap-2 shadow-sm disabled:opacity-50"
+                disabled={createOrderMutation.isPending}
+                className={`w-full py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity flex justify-center items-center gap-2 shadow-sm ${
+                  createOrderMutation.isPending ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                }`}
               >
                 <Save className="w-5 h-5" />
                 {createOrderMutation.isPending ? 'Processing...' : 'Complete Order'}
@@ -276,7 +443,7 @@ export const CreateOrderDrawer: React.FC<CreateOrderDrawerProps> = ({ isOpen, on
     <>
       {createPortal(modalContent, document.body)}
       <AddCustomerDrawer isOpen={isAddCustomerOpen} onClose={() => setIsAddCustomerOpen(false)} />
-      <AddProductDrawer isOpen={isAddProductOpen} onClose={() => setIsAddProductOpen(false)} />
+      <AddReadyMadeDrawer isOpen={isAddProductOpen} onClose={() => setIsAddProductOpen(false)} />
     </>
   ) : null
 }

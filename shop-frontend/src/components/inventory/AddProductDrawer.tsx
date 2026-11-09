@@ -22,13 +22,13 @@ interface RecipeItemDraft {
   quantity: number
 }
 
-export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({ 
-  isOpen, 
+export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
+  isOpen,
   onClose,
   defaultType = 'STANDARD'
 }) => {
   const queryClient = useQueryClient()
-  
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -77,7 +77,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
 
   // Calculate live BOM Material Cost
   const totalMaterialCost = recipeItems.reduce(
-    (sum, item) => sum + (item.unitCost * item.quantity), 
+    (sum, item) => sum + (item.unitCost * item.quantity),
     0
   )
 
@@ -166,13 +166,23 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim() || !formData.price) {
+    const trimmedName = formData.name.trim()
+    if (!trimmedName || !formData.price) {
       toast.error('Please enter Item Name and Price')
       return
     }
-    
+
+    // Duplicate name validation
+    const duplicate = allProducts.find(
+      p => p.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    )
+    if (duplicate) {
+      toast.error(`A product named "${trimmedName}" already exists. Please choose a different name.`)
+      return
+    }
+
     createProductMutation.mutate({
-      name: formData.name.trim(),
+      name: trimmedName,
       description: formData.description?.trim() || undefined,
       type: formData.type,
       price: Number(formData.price),
@@ -206,18 +216,18 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div>
                 <h2 className="text-lg font-bold text-foreground">
-                  {formData.type === 'FINISHED_GOOD' 
-                    ? 'Add Garment to Make (Finished Good)' 
-                    : formData.type === 'RAW_MATERIAL' 
-                    ? 'Add Raw Material' 
-                    : 'Add New Product'}
+                  {formData.type === 'FINISHED_GOOD'
+                    ? 'Add Garment to Make (Finished Good)'
+                    : formData.type === 'RAW_MATERIAL'
+                      ? 'Add Raw Material'
+                      : 'Add New Product'}
                 </h2>
                 <p className="text-xs text-muted-foreground">
                   {formData.type === 'FINISHED_GOOD'
                     ? 'Define garment specs & raw material recipe (BOM)'
                     : formData.type === 'RAW_MATERIAL'
-                    ? 'Cloth, buttons, zips & accessories used in production'
-                    : 'Standard retail or inventory product'}
+                      ? 'Cloth, buttons, zips & accessories used in production'
+                      : 'Standard retail or inventory product'}
                 </p>
               </div>
               <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
@@ -234,16 +244,16 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                 <CustomSelect
                   value={formData.type}
                   onChange={(val) => {
-                    setFormData({ 
-                      ...formData, 
+                    setFormData({
+                      ...formData,
                       type: val,
                       unit: val === 'RAW_MATERIAL' && formData.unit === 'pcs' ? 'meters' : formData.unit
                     })
                   }}
                   options={[
-                    { value: 'FINISHED_GOOD', label: '👗 Finished Good (e.g. Kurta, Suit, Pant, Shirt)' },
-                    { value: 'RAW_MATERIAL', label: '🧵 Raw Material (e.g. Fabric, Buttons, Zippers, Thread)' },
-                    { value: 'STANDARD', label: '📦 Standard Retail Item' }
+                    { value: 'STANDARD', label: 'Ready-Made Retail Item (Shirt, Jeans, Accessories)' },
+                    { value: 'FINISHED_GOOD', label: 'Item We Make (Garment to Tailor/Manufacture)' },
+                    { value: 'RAW_MATERIAL', label: 'Raw Material (Fabric, Buttons, Thread)' }
                   ]}
                 />
               </div>
@@ -259,11 +269,11 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder={
-                    formData.type === 'FINISHED_GOOD' 
-                      ? 'e.g. Cotton Kurta, Formal Pant, Silk Suit' 
+                    formData.type === 'FINISHED_GOOD'
+                      ? 'e.g. Cotton Kurta, Formal Pant, Silk Suit'
                       : formData.type === 'RAW_MATERIAL'
-                      ? 'e.g. Pure Cotton Fabric, Metallic Buttons, Brass Zip'
-                      : 'e.g. Readymade Belt'
+                        ? 'e.g. Pure Cotton Fabric, Metallic Buttons, Brass Zip'
+                        : 'e.g. Readymade Belt'
                   }
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
                 />
@@ -291,8 +301,8 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">
-                    {formData.type === 'RAW_MATERIAL' 
-                      ? `Stock (${formData.unit})` 
+                    {formData.type === 'RAW_MATERIAL'
+                      ? `Stock (${formData.unit})`
                       : `Initial Stock (${formData.unit})`}
                   </label>
                   <input
@@ -307,8 +317,8 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">
-                    {formData.type === 'RAW_MATERIAL' 
-                      ? `Cost per ${formData.unit} (₹) *` 
+                    {formData.type === 'RAW_MATERIAL'
+                      ? `Cost per ${formData.unit} (₹) *`
                       : 'Selling Price (₹) *'}
                   </label>
                   <input
@@ -371,7 +381,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
 
                     {rawMaterials.length === 0 && (
                       <p className="text-[11px] text-amber-500 font-medium">
-                        ⚠️ No raw materials found in inventory. You can create raw materials (Cloth, Buttons) first, or add this recipe later.
+                        No raw materials found in inventory. You can create raw materials (Cloth, Buttons) first, or add this recipe later.
                       </p>
                     )}
                   </div>
@@ -391,7 +401,7 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                               <div>
                                 <span className="font-semibold text-foreground">{item.name}</span>
                                 <span className="text-muted-foreground ml-2">
-                                  {item.quantity} {item.unit} × ₹{item.unitCost} = 
+                                  {item.quantity} {item.unit} × ₹{item.unitCost} =
                                   <strong className="text-foreground ml-1">₹{itemTotalCost.toFixed(2)}</strong>
                                 </span>
                               </div>
@@ -493,11 +503,11 @@ export const AddProductDrawer: React.FC<AddProductDrawerProps> = ({
                 className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold hover:opacity-90 transition-opacity flex justify-center items-center gap-2"
               >
                 <Save className="w-4 h-4" />
-                {createProductMutation.isPending 
-                  ? 'Saving Item & Recipe...' 
-                  : formData.type === 'FINISHED_GOOD' 
-                  ? 'Save Garment & Recipe' 
-                  : 'Save Item'}
+                {createProductMutation.isPending
+                  ? 'Saving Item & Recipe...'
+                  : formData.type === 'FINISHED_GOOD'
+                    ? 'Save Garment & Recipe'
+                    : 'Save Item'}
               </button>
             </div>
           </motion.div>

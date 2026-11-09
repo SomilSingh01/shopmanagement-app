@@ -159,10 +159,21 @@ export const AddItemWeMakeDrawer: React.FC<AddItemWeMakeDrawerProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!garmentName.trim()) {
+    const trimmedName = garmentName.trim()
+    if (!trimmedName) {
       toast.error('Please enter the garment name (e.g. Kurta, Pant, Shirt)')
       return
     }
+
+    // Duplicate name validation
+    const duplicate = allProducts.find(
+      p => p.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    )
+    if (duplicate) {
+      toast.error(`An item named "${trimmedName}" already exists. Please choose a different name.`)
+      return
+    }
+
     const validRows = recipeRows.filter(r => r.name.trim().length > 0)
     if (validRows.length === 0) {
       toast.error('Please add at least one material needed to make this garment')

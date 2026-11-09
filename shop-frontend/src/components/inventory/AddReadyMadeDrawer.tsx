@@ -2,20 +2,32 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Save, ShoppingBag, IndianRupee, Tag, AlertTriangle } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
 import toast from 'react-hot-toast'
+
+import type { Product } from '@/types'
 
 interface AddReadyMadeDrawerProps {
   isOpen: boolean
   onClose: () => void
+  product?: Product | null
 }
 
 export const AddReadyMadeDrawer: React.FC<AddReadyMadeDrawerProps> = ({
   isOpen,
-  onClose
+  onClose,
+  product
 }) => {
   const queryClient = useQueryClient()
+  const isEditing = !!product
+
+  const { data: allProductsData } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => apiClient.getProducts(),
+    enabled: isOpen
+  })
+  const allProducts: Product[] = allProductsData?.data || allProductsData || []
 
   const [formData, setFormData] = useState({
     name: '',
@@ -30,45 +42,85 @@ export const AddReadyMadeDrawer: React.FC<AddReadyMadeDrawerProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        name: '',
-        sellingPrice: '',
-        costPrice: '',
-        stock: '',
-        lowStockThreshold: '5',
-        size: '',
-        sku: '',
-        notes: ''
-      })
+      if (product) {
+        let costStr = ''
+        let noteStr = product.description || ''
+        if (noteStr.includes('Purchase Cost: ₹')) {
+          const parts = noteStr.split(' • ')
+          const costPart = parts.find(p => p.startsWith('Purchase Cost: ₹'))
+          if (costPart) {
+            costStr = costPart.replace('Purchase Cost: ₹', '')
+          }
+          noteStr = parts.filter(p => !p.startsWith('Purchase Cost: ₹')).join(' • ')
+        }
+
+        setFormData({
+          name: product.name,
+          sellingPrice: product.price ? product.price.toString() : '',
+          costPrice: costStr,
+          stock: product.stock !== undefined ? product.stock.toString() : '',
+          lowStockThreshold: product.lowStockThreshold !== undefined ? product.lowStockThreshold.toString() : '5',
+          size: product.dimensions || '',
+          sku: product.sku || '',
+          notes: noteStr
+        })
+      } else {
+        setFormData({
+          name: '',
+          sellingPrice: '',
+          costPrice: '',
+          stock: '',
+          lowStockThreshold: '5',
+          size: '',
+          sku: '',
+          notes: ''
+        })
+      }
     }
-  }, [isOpen])
+  }, [isOpen, product])
 
   const selling = parseFloat(formData.sellingPrice) || 0
   const cost = parseFloat(formData.costPrice) || 0
   const margin = selling > 0 ? selling - cost : 0
   const marginPercent = selling > 0 ? ((margin / selling) * 100).toFixed(1) : '0'
 
-  const createReadyMadeMutation = useMutation({
-    mutationFn: (data: any) => apiClient.createProduct(data),
+  const readyMadeMutation = useMutation({
+    mutationFn: (data: any) => {
+      if (isEditing && product) {
+        return apiClient.updateProduct(product.id, data)
+      }
+      return apiClient.createProduct(data)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-products'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
       queryClient.invalidateQueries({ queryKey: ['low-stock'] })
-      toast.success(`Ready-made item "${formData.name.trim()}" added to inventory!`)
+      toast.success(isEditing ? `Updated "${formData.name.trim()}"!` : `Added "${formData.name.trim()}" to inventory!`)
       onClose()
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to add item')
+      toast.error(err.response?.data?.message || (isEditing ? 'Failed to update item' : 'Failed to add item'))
     }
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim()) {
+    const trimmedName = formData.name.trim()
+    if (!trimmedName) {
       toast.error('Please enter the product name')
       return
     }
+
+    // Duplicate name validation
+    const duplicate = allProducts.find(
+      p => p.name.trim().toLowerCase() === trimmedName.toLowerCase() && (!isEditing || p.id !== product?.id)
+    )
+    if (duplicate) {
+      toast.error(`A product named "${trimmedName}" already exists. Please choose a different name.`)
+      return
+    }
+
     if (!formData.sellingPrice) {
       toast.error('Please enter the selling price')
       return
@@ -78,8 +130,8 @@ export const AddReadyMadeDrawer: React.FC<AddReadyMadeDrawerProps> = ({
     const costNote = formData.costPrice ? `Purchase Cost: ₹${formData.costPrice}` : ''
     const fullDescription = [costNote, formData.notes.trim()].filter(Boolean).join(' • ')
 
-    createReadyMadeMutation.mutate({
-      name: formData.name.trim(),
+    readyMadeMutation.mutate({
+      name: trimmedName,
       type: 'STANDARD',
       price: Number(formData.sellingPrice),
       stock: formData.stock ? Number(formData.stock) : 0,
@@ -117,10 +169,10 @@ export const AddReadyMadeDrawer: React.FC<AddReadyMadeDrawerProps> = ({
                 </div>
                 <div>
                   <h2 className="text-base sm:text-lg font-bold text-foreground">
-                    Add Ready-Made Item
+                    {isEditing ? 'Edit Ready-Made Item' : 'Add Ready-Made Item'}
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Off-the-rack garments ready to sell directly to customers
+                    {isEditing ? 'Update price, stock, threshold or item details' : 'Off-the-rack garments ready to sell directly to customers'}
                   </p>
                 </div>
               </div>
@@ -300,11 +352,11 @@ export const AddReadyMadeDrawer: React.FC<AddReadyMadeDrawerProps> = ({
               <button
                 type="submit"
                 onClick={handleSubmit}
-                disabled={createReadyMadeMutation.isPending}
+                disabled={readyMadeMutation.isPending}
                 className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                {createReadyMadeMutation.isPending ? 'Saving Item...' : 'Save Ready-Made Item'}
+                {readyMadeMutation.isPending ? 'Saving...' : isEditing ? 'Update Ready-Made Item' : 'Save Ready-Made Item'}
               </button>
             </div>
           </motion.div>

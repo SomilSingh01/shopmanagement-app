@@ -220,6 +220,7 @@ export default function ManufacturingPage() {
       queryClient.invalidateQueries({ queryKey: ['manufacturing-orders'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
       queryClient.invalidateQueries({ queryKey: ['inventory-products'] })
+      queryClient.invalidateQueries({ queryKey: ['low-stock'] })
       toast.success('Production completed! Stock updated.')
     },
     onError: (error: any) => {

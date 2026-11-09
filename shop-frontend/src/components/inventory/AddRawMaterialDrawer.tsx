@@ -2,25 +2,37 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Save, Scissors, AlertTriangle, Layers, Tag } from 'lucide-react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api'
 import toast from 'react-hot-toast'
 import { CustomSelect } from '@/components/ui/CustomSelect'
+
+import type { Product } from '@/types'
 
 interface AddRawMaterialDrawerProps {
   isOpen: boolean
   onClose: () => void
   initialName?: string
   initialUnit?: string
+  product?: Product | null
 }
 
 export const AddRawMaterialDrawer: React.FC<AddRawMaterialDrawerProps> = ({
   isOpen,
   onClose,
   initialName = '',
-  initialUnit = 'meters'
+  initialUnit = 'meters',
+  product
 }) => {
   const queryClient = useQueryClient()
+  const isEditing = !!product
+
+  const { data: allProductsData } = useQuery({
+    queryKey: ['products'],
+    queryFn: () => apiClient.getProducts(),
+    enabled: isOpen
+  })
+  const allProducts: Product[] = allProductsData?.data || allProductsData || []
 
   const [formData, setFormData] = useState({
     name: initialName,
@@ -34,46 +46,74 @@ export const AddRawMaterialDrawer: React.FC<AddRawMaterialDrawerProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        name: initialName,
-        unit: initialUnit,
-        stock: '',
-        price: '',
-        lowStockThreshold: '10',
-        sku: '',
-        description: ''
-      })
+      if (product) {
+        setFormData({
+          name: product.name,
+          unit: product.unit || 'meters',
+          stock: product.stock !== undefined ? product.stock.toString() : '',
+          price: product.price !== undefined ? product.price.toString() : '',
+          lowStockThreshold: product.lowStockThreshold !== undefined ? product.lowStockThreshold.toString() : '10',
+          sku: product.sku || '',
+          description: product.description || ''
+        })
+      } else {
+        setFormData({
+          name: initialName,
+          unit: initialUnit,
+          stock: '',
+          price: '',
+          lowStockThreshold: '10',
+          sku: '',
+          description: ''
+        })
+      }
     }
-  }, [isOpen, initialName, initialUnit])
+  }, [isOpen, initialName, initialUnit, product])
 
-  const createMaterialMutation = useMutation({
-    mutationFn: (data: any) => apiClient.createProduct(data),
+  const materialMutation = useMutation({
+    mutationFn: (data: any) => {
+      if (isEditing && product) {
+        return apiClient.updateProduct(product.id, data)
+      }
+      return apiClient.createProduct(data)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory-products'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
       queryClient.invalidateQueries({ queryKey: ['low-stock'] })
-      toast.success(`Raw material "${formData.name.trim()}" added to inventory!`)
+      toast.success(isEditing ? `Updated "${formData.name.trim()}"!` : `Added raw material "${formData.name.trim()}"!`)
       onClose()
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Failed to add raw material')
+      toast.error(err.response?.data?.message || (isEditing ? 'Failed to update raw material' : 'Failed to add raw material'))
     }
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim()) {
+    const trimmedName = formData.name.trim()
+    if (!trimmedName) {
       toast.error('Please enter the material name')
       return
     }
+
+    // Duplicate name validation
+    const duplicate = allProducts.find(
+      p => p.name.trim().toLowerCase() === trimmedName.toLowerCase() && (!isEditing || p.id !== product?.id)
+    )
+    if (duplicate) {
+      toast.error(`A material named "${trimmedName}" already exists. Please choose a different name.`)
+      return
+    }
+
     if (!formData.price) {
       toast.error(`Please enter the purchase cost per ${formData.unit}`)
       return
     }
 
-    createMaterialMutation.mutate({
-      name: formData.name.trim(),
+    materialMutation.mutate({
+      name: trimmedName,
       type: 'RAW_MATERIAL',
       unit: formData.unit,
       stock: formData.stock ? Number(formData.stock) : 0,
@@ -110,10 +150,10 @@ export const AddRawMaterialDrawer: React.FC<AddRawMaterialDrawerProps> = ({
                 </div>
                 <div>
                   <h2 className="text-base sm:text-lg font-bold text-foreground">
-                    Add Raw Material
+                    {isEditing ? 'Edit Raw Material' : 'Add Raw Material'}
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Record fabric, buttons, zippers, or thread into workshop stock
+                    {isEditing ? 'Update stock quantity, cost per unit, or alert threshold' : 'Record fabric, buttons, zippers, or thread into workshop stock'}
                   </p>
                 </div>
               </div>
@@ -275,11 +315,11 @@ export const AddRawMaterialDrawer: React.FC<AddRawMaterialDrawerProps> = ({
               <button
                 type="submit"
                 onClick={handleSubmit}
-                disabled={createMaterialMutation.isPending}
+                disabled={materialMutation.isPending}
                 className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-sm transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                {createMaterialMutation.isPending ? 'Saving Material...' : 'Save Raw Material'}
+                {materialMutation.isPending ? 'Saving...' : isEditing ? 'Update Raw Material' : 'Save Raw Material'}
               </button>
             </div>
           </motion.div>

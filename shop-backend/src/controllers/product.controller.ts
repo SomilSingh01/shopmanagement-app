@@ -22,6 +22,13 @@ export class ProductController {
     try {
       const products = await prisma.product.findMany({
         where: { userId: (req as any).user.id },
+        include: {
+          bomItems: {
+            include: {
+              rawMaterial: true,
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
       });
       res.json(products);
@@ -35,7 +42,14 @@ export class ProductController {
     try {
       const id = req.params.id as string;
       const product = await prisma.product.findFirst({ 
-        where: { id, userId: (req as any).user.id } 
+        where: { id, userId: (req as any).user.id },
+        include: {
+          bomItems: {
+            include: {
+              rawMaterial: true,
+            },
+          },
+        },
       });
       if (!product) return res.status(404).json({ message: 'Product not found' });
       res.json(product);
@@ -47,8 +61,24 @@ export class ProductController {
   static async create(req: Request, res: Response) {
     try {
       const data = createProductSchema.parse(req.body);
+      const trimmedName = data.name.trim();
+
+      // Duplicate name detection
+      const existing = await prisma.product.findFirst({
+        where: {
+          userId: (req as any).user.id,
+          name: trimmedName,
+        },
+      });
+
+      if (existing) {
+        return res.status(400).json({
+          message: `A product with the name "${trimmedName}" already exists. Please choose a different name.`,
+        });
+      }
+
       const product = await prisma.product.create({ 
-        data: { ...data, userId: (req as any).user.id } 
+        data: { ...data, name: trimmedName, userId: (req as any).user.id } 
       });
       res.status(201).json(product);
     } catch (error) {
@@ -61,6 +91,26 @@ export class ProductController {
     try {
       const id = req.params.id as string;
       const data = updateProductSchema.parse(req.body);
+
+      // Duplicate name detection if name is being changed
+      if (data.name) {
+        const trimmedName = data.name.trim();
+        const existing = await prisma.product.findFirst({
+          where: {
+            userId: (req as any).user.id,
+            name: trimmedName,
+            id: { not: id },
+          },
+        });
+
+        if (existing) {
+          return res.status(400).json({
+            message: `A product with the name "${trimmedName}" already exists. Please choose a different name.`,
+          });
+        }
+        data.name = trimmedName;
+      }
+
       const product = await prisma.product.updateMany({ 
         where: { id, userId: (req as any).user.id }, 
         data 

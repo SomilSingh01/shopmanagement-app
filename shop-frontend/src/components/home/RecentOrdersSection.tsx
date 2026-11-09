@@ -69,40 +69,43 @@ export const RecentOrdersSection: React.FC<RecentOrdersSectionProps> = ({
           const totalAmt = order.total || order.totalAmount || 0
           
           return (
-          <div
+          <Link
             key={order.id}
-            className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4"
+            to={`/app/orders/${order.id}`}
+            className="block hover:opacity-95 transition-opacity"
           >
-            {/* Avatar */}
-            <div
-              className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${getAvatarBg(
-                cName
-              )}`}
-            >
-              <span className={`text-sm font-bold ${getAvatarColor(cName)}`}>
-                {cName[0]?.toUpperCase()}
-              </span>
-            </div>
+            <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4 hover:border-primary/40 transition-colors">
+              {/* Avatar */}
+              <div
+                className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${getAvatarBg(
+                  cName
+                )}`}
+              >
+                <span className={`text-sm font-bold ${getAvatarColor(cName)}`}>
+                  {cName[0]?.toUpperCase()}
+                </span>
+              </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground text-sm truncate">
-                {cName}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                {order.items?.length || 0} item
-                {order.items?.length !== 1 ? 's' : ''} · {new Date(order.createdAt).toLocaleDateString()}
-              </p>
-            </div>
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-foreground text-sm truncate">
+                  {cName}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {order.items?.length || 0} item
+                  {order.items?.length !== 1 ? 's' : ''} · {new Date(order.createdAt).toLocaleDateString()}
+                </p>
+              </div>
 
-            {/* Amount */}
-            <div className="flex-shrink-0 text-right">
-              <p className="font-bold text-foreground">₹{totalAmt.toLocaleString()}</p>
-              <p className={`text-xs font-medium mt-1 ${getStatusColor(order.status)}`}>
-                {order.status}
-              </p>
+              {/* Amount */}
+              <div className="flex-shrink-0 text-right">
+                <p className="font-bold text-foreground">₹{totalAmt.toLocaleString()}</p>
+                <p className={`text-xs font-medium mt-1 ${getStatusColor(order.status)}`}>
+                  {order.status}
+                </p>
+              </div>
             </div>
-          </div>
+          </Link>
         )})}
       </div>
     </motion.div>

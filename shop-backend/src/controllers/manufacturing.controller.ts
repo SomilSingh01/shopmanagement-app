@@ -87,9 +87,10 @@ export class ManufacturingController {
             throw new Error(`Insufficient stock for ${item.rawMaterial.name}. Needed: ${totalNeeded}, Available: ${item.rawMaterial.stock}`);
           }
 
+          const decrementQty = Math.max(1, Math.ceil(totalNeeded));
           await tx.product.update({
             where: { id: item.rawMaterialId },
-            data: { stock: { decrement: totalNeeded } }
+            data: { stock: { decrement: decrementQty } }
           });
         }
 

@@ -37,6 +37,7 @@ export interface Product {
   sku?: string
   dimensions?: string
   imageUrl?: string
+  bomItems?: BOMItem[]
   createdAt: string
   updatedAt: string
 }

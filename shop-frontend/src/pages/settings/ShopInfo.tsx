@@ -124,7 +124,7 @@ export default function ShopInfoPage() {
                     : 'bg-card border-border text-muted-foreground hover:border-primary/50'
                 }`}
               >
-                {type === 'B2C' ? '🛍️ B2C (Consumer)' : '🏭 B2B (Business)'}
+                {type === 'B2C' ? 'B2C (Consumer)' : 'B2B (Business)'}
               </button>
             ))}
           </div>
